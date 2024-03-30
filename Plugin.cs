@@ -185,6 +185,31 @@ namespace StationeersTest
                 ci.writeToJson(writer);
             }
             writer.WriteEnd();
+
+            writer.WritePropertyName("ConnectionList");
+            writer.WriteStartArray();
+            {
+                Thing thing = Prefab.Find(PrefabName);
+                Device device = thing as Device;
+                if (device)
+                {
+                    for (int j = 0; j < device.OpenEnds.Count; j++)
+                    {
+                        writer.WriteStartArray();
+                        Connection connection = device.OpenEnds[j];
+                        NetworkType typ = connection.ConnectionType;
+                        ConnectionRole role = connection.ConnectionRole;
+                        var typ_name = Enum.GetName(typeof(NetworkType), typ);
+                        writer.WriteValue(typ_name);
+                        var role_name = Enum.GetName(typeof(ConnectionRole), role);
+                        writer.WriteValue(role_name);
+                        writer.WriteEnd();
+                    }
+                }
+
+            }
+            writer.WriteEnd();
+
             writer.WriteEnd();
         }
     }
