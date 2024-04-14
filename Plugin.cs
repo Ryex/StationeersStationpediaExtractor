@@ -186,12 +186,14 @@ namespace StationeersTest
             }
             writer.WriteEnd();
 
-            writer.WritePropertyName("ConnectionList");
-            writer.WriteStartArray();
+            Thing thing = Prefab.Find(PrefabName);
+            Device device = thing as Device;
+            DynamicThing dynamicThing = thing as DynamicThing;
+
+            if (device)
             {
-                Thing thing = Prefab.Find(PrefabName);
-                Device device = thing as Device;
-                if (device)
+                writer.WritePropertyName("ConnectionList");
+                writer.WriteStartArray();
                 {
                     for (int j = 0; j < device.OpenEnds.Count; j++)
                     {
@@ -205,10 +207,35 @@ namespace StationeersTest
                         writer.WriteValue(role_name);
                         writer.WriteEnd();
                     }
+
+                }
+                writer.WriteEnd();
+
+                CircuitHousing circuitHousing = device as CircuitHousing;
+                DeviceInputOutputCircuit deviceCircuitIO = device as DeviceInputOutputCircuit;
+                DeviceInputOutputImportExportCircuit deviceCircuitIOIE = device as DeviceInputOutputImportExportCircuit;
+
+                if (circuitHousing || deviceCircuitIO || deviceCircuitIOIE) {
+                    writer.WritePropertyName("DevicesLength");
+                    if (circuitHousing) {
+                        writer.WriteValue(circuitHousing.Devices.Length);
+                    } else if(deviceCircuitIO) {
+                        writer.WriteValue(deviceCircuitIO.Devices.Length);
+                    } else if(deviceCircuitIOIE) {
+                        writer.WriteValue(deviceCircuitIOIE.Devices.Length);
+                    }
                 }
 
             }
-            writer.WriteEnd();
+
+            if (dynamicThing)
+            {
+                writer.WritePropertyName("SlotClass");
+                writer.WriteValue(Enum.GetName(typeof(Slot.Class), dynamicThing.SlotType));
+                writer.WritePropertyName("SortingClass");
+                writer.WriteValue(Enum.GetName(typeof(SortingClass), dynamicThing.SortingClass));
+
+            }
 
             writer.WriteEnd();
         }
@@ -375,6 +402,11 @@ namespace StationeersTest
                     foreach (var i in Enum.GetValues(typeof(PowerMode)))
                     {
                         writer.WritePropertyName("PowerMode." + Enum.GetName(typeof(PowerMode), i));
+                        writer.WriteValue(i);
+                    }
+                    foreach (var i in Enum.GetValues(typeof(RobotMode)))
+                    {
+                        writer.WritePropertyName("RobotMode." + Enum.GetName(typeof(RobotMode), i));
                         writer.WriteValue(i);
                     }
                     foreach (var i in Enum.GetValues(typeof(SortingClass)))
