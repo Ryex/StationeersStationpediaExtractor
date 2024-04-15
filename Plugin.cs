@@ -17,7 +17,10 @@ using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts;
 using Assets.Scripts.Objects.Entities;
 using Assets.Scripts.Objects.Pipes;
+using Assets.Scripts.Objects.Appliances;
 using Assets.Scripts.Atmospherics;
+using Objects.Items;
+using Reagents;
 
 namespace StationeersTest
 {
@@ -188,12 +191,12 @@ namespace StationeersTest
 
             Thing thing = Prefab.Find(PrefabName);
             Device device = thing as Device;
-            DynamicThing dynamicThing = thing as DynamicThing;
+            DynamicThing dynamicthing = thing as DynamicThing;
 
             if (device)
             {
-                writer.WritePropertyName("IsDevice");
-                writer.WriteValue(true);
+                writer.WritePropertyName("Device");
+                writer.WriteStartObject();
 
                 writer.WritePropertyName("ConnectionList");
                 writer.WriteStartArray();
@@ -218,13 +221,19 @@ namespace StationeersTest
                 DeviceInputOutputCircuit deviceCircuitIO = device as DeviceInputOutputCircuit;
                 DeviceInputOutputImportExportCircuit deviceCircuitIOIE = device as DeviceInputOutputImportExportCircuit;
 
-                if (circuitHousing || deviceCircuitIO || deviceCircuitIOIE) {
+                if (circuitHousing || deviceCircuitIO || deviceCircuitIOIE)
+                {
                     writer.WritePropertyName("DevicesLength");
-                    if (circuitHousing) {
+                    if (circuitHousing)
+                    {
                         writer.WriteValue(circuitHousing.Devices.Length);
-                    } else if(deviceCircuitIO) {
+                    }
+                    else if (deviceCircuitIO)
+                    {
                         writer.WriteValue(deviceCircuitIO.Devices.Length);
-                    } else if(deviceCircuitIOIE) {
+                    }
+                    else if (deviceCircuitIOIE)
+                    {
                         writer.WriteValue(deviceCircuitIOIE.Devices.Length);
                     }
                 }
@@ -245,35 +254,101 @@ namespace StationeersTest
                 writer.WriteValue(device.HasModeState);
                 writer.WritePropertyName("HasColorState");
                 writer.WriteValue(device.HasColorState);
+
+                writer.WriteEndObject();
             }
 
-            if (dynamicThing)
+            if (dynamicthing)
             {
-                writer.WritePropertyName("IsDynamic");
-                writer.WriteValue(true);
+                writer.WritePropertyName("Item");
+                writer.WriteStartObject();
 
                 writer.WritePropertyName("SlotClass");
-                writer.WriteValue(Enum.GetName(typeof(Slot.Class), dynamicThing.SlotType));
+                writer.WriteValue(Enum.GetName(typeof(Slot.Class), dynamicthing.SlotType));
                 writer.WritePropertyName("SortingClass");
-                writer.WriteValue(Enum.GetName(typeof(SortingClass), dynamicThing.SortingClass));
-                if (dynamicThing is IQuantity) {
-                    IQuantity quantity = dynamicThing as IQuantity;
+                writer.WriteValue(Enum.GetName(typeof(SortingClass), dynamicthing.SortingClass));
+                if (dynamicthing is IQuantity)
+                {
+                    IQuantity quantity = dynamicthing as IQuantity;
                     double maxQuantity;
-                    float? num = (quantity != null) ? new float?(quantity.GetMaxQuantity): null;
-                    if (num == null) {
+                    float? num = (quantity != null) ? new float?(quantity.GetMaxQuantity) : null;
+                    if (num == null)
+                    {
                         maxQuantity = 1.0;
-                    } else {
+                    }
+                    else
+                    {
                         maxQuantity = num.GetValueOrDefault();
                     }
 
                     writer.WritePropertyName("MaxQuantity");
                     writer.WriteValue(maxQuantity);
                 }
-                if (dynamicThing is GasFilter) {
-                    GasFilter gasFilter = dynamicThing as GasFilter;
+                if (dynamicthing is GasFilter)
+                {
+                    GasFilter gasFilter = dynamicthing as GasFilter;
                     writer.WritePropertyName("FilterType");
-                    writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType),  gasFilter.FilterType));
+                    writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType), gasFilter.FilterType));
                 }
+
+                Consumable consumable = thing as Consumable;
+                IIngredient ingredient = thing as IIngredient;
+
+                if (consumable != null || ingredient != null)
+                {
+                    ReagentMixture mixture;
+                    if (ingredient != null)
+                    {
+                        mixture = ingredient.AddMixture;
+                    }
+                    else
+                    {
+                        mixture = consumable.CreatedReagentMixture;
+                    }
+
+                    if (mixture.TotalReagents > 0.0)
+                    {
+                        writer.WritePropertyName("Reagents");
+                        writer.WriteStartObject();
+
+                        if (consumable != null)
+                        {
+                            writer.WritePropertyName("Consumable");
+                            writer.WriteValue(true);
+                        }
+                        if (ingredient != null)
+                        {
+                            writer.WritePropertyName("Ingredient");
+                            writer.WriteValue(true);
+                        }
+                        foreach (var reagent in Reagent.AllReagents)
+                        {
+                            double val;
+
+                            if (consumable != null)
+                            {
+                                val = consumable.CreatedReagentMixture.Get(reagent);
+                            }
+                            else
+                            {
+                                val = ingredient.AddMixture.Get(reagent);
+                            }
+
+                            if (val > 0.0)
+                            {
+                                writer.WritePropertyName(reagent.TypeNameShort);
+                                writer.WriteValue(val);
+
+                            }
+                        }
+                        writer.WriteEnd();
+                    }
+
+
+
+                }
+
+                writer.WriteEnd();
 
             }
 
@@ -320,6 +395,16 @@ namespace StationeersTest
                     }
 
                     writer.WriteEndArray();
+
+                    writer.WritePropertyName("reagents");
+                    writer.WriteStartObject();
+                    foreach (var reagent in Reagent.AllReagentsSorted)
+                    {
+                        writer.WritePropertyName(reagent.TypeNameShort);
+                        writer.WriteValue(reagent.Hash);
+                    }
+                    writer.WriteEndObject();
+
                     writer.WriteEndObject();
 
                 }
