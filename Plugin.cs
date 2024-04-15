@@ -192,6 +192,9 @@ namespace StationeersTest
 
             if (device)
             {
+                writer.WritePropertyName("IsDevice");
+                writer.WriteValue(true);
+
                 writer.WritePropertyName("ConnectionList");
                 writer.WriteStartArray();
                 {
@@ -226,14 +229,51 @@ namespace StationeersTest
                     }
                 }
 
+                writer.WritePropertyName("HasReagents");
+                writer.WriteValue(device.HasReadableReagentMixture);
+                writer.WritePropertyName("HasAtmosphere");
+                writer.WriteValue(device.HasReadableAtmosphere);
+                writer.WritePropertyName("HasLockState");
+                writer.WriteValue(device.HasLockState);
+                writer.WritePropertyName("HasOpenState");
+                writer.WriteValue(device.HasOpenState);
+                writer.WritePropertyName("HasOnOffState");
+                writer.WriteValue(device.HasOnOffState);
+                writer.WritePropertyName("HasActivateState");
+                writer.WriteValue(device.HasActivateState);
+                writer.WritePropertyName("HasModeState");
+                writer.WriteValue(device.HasModeState);
+                writer.WritePropertyName("HasColorState");
+                writer.WriteValue(device.HasColorState);
             }
 
             if (dynamicThing)
             {
+                writer.WritePropertyName("IsDynamic");
+                writer.WriteValue(true);
+
                 writer.WritePropertyName("SlotClass");
                 writer.WriteValue(Enum.GetName(typeof(Slot.Class), dynamicThing.SlotType));
                 writer.WritePropertyName("SortingClass");
                 writer.WriteValue(Enum.GetName(typeof(SortingClass), dynamicThing.SortingClass));
+                if (dynamicThing is IQuantity) {
+                    IQuantity quantity = dynamicThing as IQuantity;
+                    double maxQuantity;
+                    float? num = (quantity != null) ? new float?(quantity.GetMaxQuantity): null;
+                    if (num == null) {
+                        maxQuantity = 1.0;
+                    } else {
+                        maxQuantity = num.GetValueOrDefault();
+                    }
+
+                    writer.WritePropertyName("MaxQuantity");
+                    writer.WriteValue(maxQuantity);
+                }
+                if (dynamicThing is GasFilter) {
+                    GasFilter gasFilter = dynamicThing as GasFilter;
+                    writer.WritePropertyName("FilterType");
+                    writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType),  gasFilter.FilterType));
+                }
 
             }
 
