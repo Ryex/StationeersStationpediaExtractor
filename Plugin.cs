@@ -20,6 +20,7 @@ using Assets.Scripts.Objects.Pipes;
 using Assets.Scripts.Objects.Appliances;
 using Assets.Scripts.Atmospherics;
 using Objects.Items;
+using Objects.Rockets;
 using Reagents;
 
 namespace StationeersTest
@@ -193,7 +194,124 @@ namespace StationeersTest
             Device device = thing as Device;
             DynamicThing dynamicthing = thing as DynamicThing;
 
-            if (device)
+            ILogicable logicable = thing as ILogicable;
+            if (logicable != null) {
+                writer.WritePropertyName("LogicInfo");
+                writer.WriteStartObject();
+
+                writer.WritePropertyName("LogicSlotTypes");
+                writer.WriteStartObject();
+                for (int i = 0; i < thing.Slots.Count; i++) {
+                    if (thing.Slots[i] != null) {
+                        writer.WritePropertyName(i.ToString());
+                        writer.WriteStartObject();
+                        foreach (LogicSlotType logicSlotType in Logicable.LogicSlotTypes)
+                        {
+                            bool read = logicable.CanLogicRead(logicSlotType, i);
+                            bool write = false;
+                            if (device != null) {
+                                write = device.CanLogicWrite(logicSlotType, i);
+                            }
+                            if (read || write) {
+                                writer.WritePropertyName(Enum.GetName(typeof(LogicSlotType), logicSlotType));
+                                if (read && !write) {
+                                    writer.WriteValue("Read");
+                                } else if (!read && write) {
+                                    writer.WriteValue("Write");
+                                } else {
+                                    writer.WriteValue("ReadWrite");
+                                }
+                            }
+                        }
+                        writer.WriteEndObject();
+                    }
+                }
+                writer.WriteEndObject();
+
+                writer.WritePropertyName("LogicTypes");
+                writer.WriteStartObject();
+                foreach (LogicType logicType in EnumCollections.LogicTypes.Values) {
+                    bool read = logicable.CanLogicRead(logicType);
+                    bool write = logicable.CanLogicWrite(logicType);
+                    if (read || write) {
+                        writer.WritePropertyName(Enum.GetName(typeof(LogicType), logicType));
+                        if (read && !write) {
+                            writer.WriteValue("Read");
+                        } else if (!read && write) {
+                            writer.WriteValue("Write");
+                        } else {
+                            writer.WriteValue("ReadWrite");
+                        }
+                    }
+                }
+                writer.WriteEndObject();
+
+                writer.WriteEndObject();
+
+                IMemory memory = thing as IMemory;
+                if (memory != null) {
+                    writer.WritePropertyName("Memory");
+                    writer.WriteStartObject();
+
+                    int memorySize = memory.GetStackSize();
+                    writer.WritePropertyName("MemorySize");
+                    writer.WriteValue(memorySize);
+                    writer.WritePropertyName("MemorySizeReadable");
+                    writer.WriteValue(NetworkHelper.GetBytesReadable((long)(memory.GetStackSize() * 8)));
+
+
+                    IMemoryWritable memoryWritable = memory as IMemoryWritable;
+                    IMemoryReadable memoryReadable = memory as IMemoryReadable;
+                    writer.WritePropertyName("MemoryAccess");
+                    if (memoryWritable != null && memoryReadable != null) {
+                        writer.WriteValue("ReadWrite");
+                    } else if ( memoryReadable != null) {
+                        writer.WriteValue("Read");
+                    } else if ( memoryWritable != null) {
+                        writer.WriteValue("Write");
+                    } else {
+                        writer.WriteValue("None");
+                    }
+
+                    IInstructable instructable = memory as IInstructable;
+                    if (instructable != null) {
+                        writer.WritePropertyName("Instructions");
+                        writer.WriteStartObject();
+                        IEnumCollection instructions = instructable.GetInstructions();
+			            for (int i = 1; i < instructions.Length; i++)
+			            {
+			                writer.WritePropertyName(instructions.GetNameFromIndex(i, false));
+			                writer.WriteStartObject();
+			                writer.WritePropertyName("Type");
+			                writer.WriteValue(instructions.GetEnumTypeName());
+				            int intFromIndex = instructions.GetIntFromIndex(i);
+			                writer.WritePropertyName("Value");
+			                writer.WriteValue(intFromIndex);
+			                writer.WritePropertyName("Description");
+			                writer.WriteValue(instructable.GetInstructionDescription(i));
+			                writer.WriteEndObject();
+			            }
+			            writer.WriteEndObject();
+                    }
+
+                    writer.WriteEndObject();
+                }
+
+           }
+
+            ITransmitable transmitable = thing as ITransmitable;
+            if (transmitable != null) {
+                writer.WritePropertyName("WirelessLogic");
+                writer.WriteValue(true);
+            }
+
+            ITransmissionReceiver transmissionReceiver = thing as ITransmissionReceiver;
+            if (transmissionReceiver != null) {
+                writer.WritePropertyName("TransmissionReceiver");
+                writer.WriteValue(true);
+            }
+
+            if (device != null)
             {
                 writer.WritePropertyName("Device");
                 writer.WriteStartObject();
@@ -308,9 +426,6 @@ namespace StationeersTest
 
                     if (mixture.TotalReagents > 0.0)
                     {
-                        writer.WritePropertyName("Reagents");
-                        writer.WriteStartObject();
-
                         if (consumable != null)
                         {
                             writer.WritePropertyName("Consumable");
@@ -321,6 +436,9 @@ namespace StationeersTest
                             writer.WritePropertyName("Ingredient");
                             writer.WriteValue(true);
                         }
+                        writer.WritePropertyName("Reagents");
+                        writer.WriteStartObject();
+
                         foreach (var reagent in Reagent.AllReagents)
                         {
                             double val;
@@ -401,15 +519,42 @@ namespace StationeersTest
                     foreach (var reagent in Reagent.AllReagentsSorted)
                     {
                         writer.WritePropertyName(reagent.TypeNameShort);
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("Hash");
                         writer.WriteValue(reagent.Hash);
+                        writer.WritePropertyName("Unit");
+                        writer.WriteValue(reagent.Unit);
+                        List<Item> allSources = ElectronicReader.GetAllSources(reagent);
+                        if (allSources != null) {
+                            writer.WritePropertyName("Sources");
+                            writer.WriteStartObject();
+                            for (int i = 0; i< allSources.Count; i++) {
+                                Item item = allSources[i];
+                                writer.WritePropertyName(item.PrefabName);
+                                writer.WriteValue(item.QuantityPerUse);
+                            }
+                            writer.WriteEndObject();
+                        }
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEndObject();
+
+                    writer.WritePropertyName("scriptCommands");
+                    writer.WriteStartObject();
+                    foreach (ScriptCommand cmd in EnumCollections.ScriptCommands.Values) {
+                        writer.WritePropertyName(Enum.GetName(typeof(ScriptCommand), cmd));
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("desc");
+                        writer.WriteValue(ProgrammableChip.GetCommandDescription(cmd));
+                        writer.WritePropertyName("example");
+                        writer.WriteValue(ProgrammableChip.GetCommandExample(cmd));
+                        writer.WriteEndObject();
                     }
                     writer.WriteEndObject();
 
                     writer.WriteEndObject();
 
                 }
-
-
             }
 
             {
@@ -422,7 +567,7 @@ namespace StationeersTest
 
                     writer.WritePropertyName("LogicType");
                     writer.WriteStartObject();
-                    foreach (var i in Enum.GetValues(typeof(LogicType)))
+                    foreach (LogicType i in EnumCollections.LogicTypes.Values)
                     {
                         var name = Enum.GetName(typeof(LogicType), i);
                         writer.WritePropertyName(name);
@@ -432,7 +577,7 @@ namespace StationeersTest
 
                     writer.WritePropertyName("LogicSlotType");
                     writer.WriteStartObject();
-                    foreach (var i in Enum.GetValues(typeof(LogicSlotType)))
+                    foreach (LogicSlotType i in EnumCollections.LogicSlotTypes.Values)
                     {
                         var name = Enum.GetName(typeof(LogicSlotType), i);
                         writer.WritePropertyName(name);
@@ -464,12 +609,12 @@ namespace StationeersTest
                     writer.WritePropertyName("Enums");
                     writer.WriteStartObject();
 
-                    foreach (var i in Enum.GetValues(typeof(LogicType)))
+                    foreach (var i in EnumCollections.LogicTypes.Values)
                     {
                         writer.WritePropertyName("LogicType." + Enum.GetName(typeof(LogicType), i));
                         writer.WriteValue(i);
                     }
-                    foreach (var i in Enum.GetValues(typeof(LogicSlotType)))
+                    foreach (var i in EnumCollections.LogicSlotTypes.Values)
                     {
                         writer.WritePropertyName("LogicSlotType." + Enum.GetName(typeof(LogicSlotType), i));
                         writer.WriteValue(i);
@@ -547,6 +692,21 @@ namespace StationeersTest
                     foreach (var i in Enum.GetValues(typeof(Chemistry.GasType)))
                     {
                         writer.WritePropertyName("GasType." + Enum.GetName(typeof(Chemistry.GasType), i));
+                        writer.WriteValue(i);
+                    }
+                    foreach( var i in Enum.GetValues(typeof(RocketMode)))
+                    {
+                        writer.WritePropertyName("RocketMode." + Enum.GetName(typeof(RocketMode), i));
+                        writer.WriteValue(i);
+                    }
+                    foreach( var i in Enum.GetValues(typeof(ReEntryProfile)))
+                    {
+                        writer.WritePropertyName("ReEntryProfile." + Enum.GetName(typeof(ReEntryProfile), i));
+                        writer.WriteValue(i);
+                    }
+                    foreach( var i in Enum.GetValues(typeof(SorterInstruction)))
+                    {
+                        writer.WritePropertyName("SorterInstruction." + Enum.GetName(typeof(SorterInstruction), i));
                         writer.WriteValue(i);
                     }
 
