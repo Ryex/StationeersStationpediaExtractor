@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using HarmonyLib;
 using Assets.Scripts.Objects.Items;
 using System.Collections.Generic;
@@ -57,17 +57,6 @@ namespace StationeersTest
             SlotType = insert.SlotType;
             SlotIndex = insert.SlotIndex;
         }
-        public void writeToJson(JsonWriter writer)
-        {
-            writer.WriteStartObject();
-            writer.WritePropertyName("SlotName");
-            writer.WriteValue(SlotName);
-            writer.WritePropertyName("SlotType");
-            writer.WriteValue(SlotType);
-            writer.WritePropertyName("SlotIndex");
-            writer.WriteValue(SlotIndex);
-            writer.WriteEnd();
-        }
     }
 
     struct OutputLogicInsert
@@ -79,17 +68,7 @@ namespace StationeersTest
             LogicName = insert.LogicName;
             LogicAccessTypes = insert.LogicAccessTypes;
         }
-        public void writeToJson(JsonWriter writer)
-        {
-            writer.WriteStartObject();
-            writer.WritePropertyName("LogicName");
-            writer.WriteValue(LogicName);
-            writer.WritePropertyName("LogicAccessTypes");
-            writer.WriteValue(LogicAccessTypes);
-            writer.WriteEnd();
-        }
     }
-
     struct OutputStationpediaPage
     {
         public string Key;
@@ -144,51 +123,11 @@ namespace StationeersTest
         {
             writer.WriteStartObject();
 
-            writer.WritePropertyName("Key");
-            writer.WriteValue(Key);
-            writer.WritePropertyName("Title");
-            writer.WriteValue(Title);
-            writer.WritePropertyName("Description");
-            writer.WriteValue(Description);
-            writer.WritePropertyName("PrefabName");
-            writer.WriteValue(PrefabName);
-            writer.WritePropertyName("PrefabHash");
-            writer.WriteValue(PrefabHash);
-            writer.WritePropertyName("SlotInserts");
-            writer.WriteStartArray();
-            foreach (var si in SlotInserts)
+            JObject obj = JObject.FromObject(this);
+            foreach (var property in obj.Properties())
             {
-                si.writeToJson(writer);
+                property.WriteTo(writer);
             }
-            writer.WriteEnd();
-            writer.WritePropertyName("LogicInsert");
-            writer.WriteStartArray();
-            foreach (var li in LogicInsert)
-            {
-                li.writeToJson(writer);
-            }
-            writer.WriteEnd();
-            writer.WritePropertyName("LogicSlotInsert");
-            writer.WriteStartArray();
-            foreach (var sli in LogicSlotInsert)
-            {
-                sli.writeToJson(writer);
-            }
-            writer.WriteEnd();
-            writer.WritePropertyName("ModeInsert");
-            writer.WriteStartArray();
-            foreach (var mi in ModeInsert)
-            {
-                mi.writeToJson(writer);
-            }
-            writer.WriteEnd();
-            writer.WritePropertyName("ConnectionInsert");
-            writer.WriteStartArray();
-            foreach (var ci in ConnectionInsert)
-            {
-                ci.writeToJson(writer);
-            }
-            writer.WriteEnd();
 
             Thing thing = Prefab.Find(PrefabName);
             Device device = thing as Device;
