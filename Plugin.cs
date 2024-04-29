@@ -1,4 +1,4 @@
-using BepInEx;
+﻿using BepInEx;
 using HarmonyLib;
 using Assets.Scripts.Objects.Items;
 using System.Collections.Generic;
@@ -22,6 +22,7 @@ using Assets.Scripts.Atmospherics;
 using Objects.Items;
 using Objects.Rockets;
 using Reagents;
+using Newtonsoft.Json.Linq;
 
 namespace StationeersTest
 {
@@ -69,6 +70,37 @@ namespace StationeersTest
             LogicAccessTypes = insert.LogicAccessTypes;
         }
     }
+
+    struct OutputBuildCostInsert
+    {
+        public string PrinterName;
+        public string TierName;
+        public string Details;
+        public string Description;
+
+        public void setFromStationBuildCostInsert(StationBuildCostInsert insert)
+        {
+            PrinterName = insert.PrinterName;
+            TierName = insert.TierName;
+            Details = insert.Details;
+            Description = insert.Description;
+        }
+    }
+
+    struct OutputCategoryInsert
+    {
+        public string NameOfThing;
+        public int PrefabHash;
+        public string PageLink;
+
+        public void setFromStationCategoryInsert(StationCategoryInsert insert)
+        {
+            NameOfThing = insert.NameOfThing;
+            PrefabHash = insert.PrefabHash;
+            PageLink = insert.PageLink;
+        }
+    }
+
     struct OutputStationpediaPage
     {
         public string Key;
@@ -76,11 +108,14 @@ namespace StationeersTest
         public string Description;
         public string PrefabName;
         public int PrefabHash;
+        public string BasePowerDraw;
+        public string MaxPressure;
         public List<OutputSlotsInset> SlotInserts;
         public List<OutputLogicInsert> LogicInsert;
         public List<OutputLogicInsert> LogicSlotInsert;
         public List<OutputLogicInsert> ModeInsert;
         public List<OutputLogicInsert> ConnectionInsert;
+        public List<OutputCategoryInsert> ConstructedByKits;
         public void setFromPage(StationpediaPage page)
         {
             Key = page.Key;
@@ -88,6 +123,8 @@ namespace StationeersTest
             Description = page.Description;
             PrefabName = page.PrefabName;
             PrefabHash = page.PrefabHash;
+            BasePowerDraw = page.BasePowerDraw;
+            MaxPressure = page.MaxPressure;
             SlotInserts = page.SlotInserts.ConvertAll(i =>
             {
                 OutputSlotsInset oi = new();
@@ -116,6 +153,12 @@ namespace StationeersTest
             {
                 OutputLogicInsert oi = new();
                 oi.setFromStationLogicInsert(i);
+                return oi;
+            });
+            ConstructedByKits = page.ConstructedByKits.ConvertAll(i =>
+            {
+                OutputCategoryInsert oi = new();
+                oi.setFromStationCategoryInsert(i);
                 return oi;
             });
         }
@@ -343,6 +386,82 @@ namespace StationeersTest
                 writer.WriteEndObject();
             }
 
+            if (thing is Structure structure)
+            {
+                writer.WritePropertyName("Structure");
+                writer.WriteStartObject();
+
+                if (structure.BuildStates.Count > 0)
+                {
+                    writer.WritePropertyName("BuildStates");
+                    writer.WriteStartArray();
+                    foreach (BuildState buildState in structure.BuildStates)
+                    {
+                        writer.WriteStartObject();
+                        if (buildState.Tool.ToolEntry is not null || buildState.Tool.ToolEntry2 is not null)
+                        {
+                            writer.WritePropertyName("Tool");
+                            writer.WriteStartArray();
+                            if (buildState.Tool.ToolEntry is { } toolEntry)
+                            {
+                                writer.WriteStartObject();
+                                writer.WritePropertyName("PrefabName");
+                                writer.WriteValue(toolEntry.PrefabName);
+                                if (toolEntry is IQuantity)
+                                {
+                                    writer.WritePropertyName("Quantity");
+                                    writer.WriteValue(buildState.Tool.EntryQuantity);
+                                }
+                                writer.WritePropertyName("IsTool");
+                                writer.WriteValue(toolEntry is Tool);
+                                writer.WriteEndObject();
+
+                            }
+                            if (buildState.Tool.ToolEntry2 is { } toolEntry2)
+                            {
+                                writer.WriteStartObject();
+                                writer.WritePropertyName("PrefabName");
+                                writer.WriteValue(toolEntry2.PrefabName);
+                                if (toolEntry2 is IQuantity)
+                                {
+                                    writer.WritePropertyName("Quantity");
+                                    writer.WriteValue(buildState.Tool.EntryQuantity2);
+                                }
+                                writer.WritePropertyName("IsTool");
+                                writer.WriteValue(toolEntry2 is Tool);
+                                writer.WriteEndObject();
+                            }
+                            writer.WriteEndArray();
+                        }
+                        if (buildState.Tool.ToolExit is not null || buildState.Tool is not null)
+                        {
+                            writer.WritePropertyName("ToolExit");
+                            writer.WriteStartArray();
+                            if (buildState.Tool.ToolExit is { } toolExit)
+                            {
+                                writer.WriteStartObject();
+                                writer.WritePropertyName("PrefabName");
+                                writer.WriteValue(toolExit.PrefabName);
+                                writer.WriteEndObject();
+
+                            }
+                            writer.WriteEndArray();
+                        }
+                        if (buildState.CanManufacture)
+                        {
+                            writer.WritePropertyName("CanManufacture");
+                            writer.WriteValue(buildState.CanManufacture);
+                            writer.WritePropertyName("MachineTier");
+                            writer.WriteValue(buildState.ManufactureDat.MachinesTier.ToString());
+                        }
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEnd();
+                }
+
+                writer.WriteEndObject();
+
+            }
             if (dynamicthing)
             {
                 writer.WritePropertyName("Item");
@@ -374,6 +493,60 @@ namespace StationeersTest
                     GasFilter gasFilter = dynamicthing as GasFilter;
                     writer.WritePropertyName("FilterType");
                     writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType), gasFilter.FilterType));
+                }
+
+                if (!(!(bool)(UnityEngine.Object)dynamicthing || Stationpedia.CreatorItem == null || dynamicthing is Plant))
+                {
+                    List<RecipeReference> allMyCreators = ElectronicReader.GetAllMyCreators(dynamicthing);
+                    if (!(allMyCreators == null))
+                    {
+                        List<int> existingCreators = new List<int>();
+                        writer.WritePropertyName("Recipes");
+                        writer.WriteStartArray();
+
+                        for (int index = 0; index < allMyCreators.Count; ++index)
+                        {
+                            RecipeReference reference = allMyCreators[index];
+                            if (!(reference.Creator is Fabricator))
+                            {
+                                writer.WriteStartObject();
+                                writer.WritePropertyName("CreatorPrefabName");
+                                writer.WriteValue(reference.Creator.PrefabName);
+                                if (dynamicthing.RecipeTier != MachineTier.Undefined && dynamicthing.RecipeTier != MachineTier.Max)
+                                {
+                                    writer.WritePropertyName("TierName");
+                                    writer.WriteValue(dynamicthing.RecipeTier.ToString());
+                                }
+
+                                try
+                                {
+                                    JToken recipeToken = JToken.FromObject(reference.Recipe);
+                                    if (recipeToken.Type == JTokenType.Object)
+                                    {
+                                        foreach (var prop in recipeToken.Children<JProperty>())
+                                        {
+                                            writer.WritePropertyName(prop.Name);
+                                            if (prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array)
+                                            {
+                                                prop.Value.WriteTo(writer);
+                                            }
+                                            else
+                                            {
+                                                writer.WriteValue(prop.Value);
+                                            }
+                                        }
+                                    }
+                                }
+                                catch (FormatException ex)
+                                {
+                                    Debug.LogError((object)("There was an error with text " + Stationpedia.CreatorItem.Parsed + " " + ex.Message));
+                                }
+                                writer.WriteEndObject();
+
+                            }
+                        }
+                        writer.WriteEndArray();
+                    }
                 }
 
                 Consumable consumable = thing as Consumable;
