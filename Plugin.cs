@@ -71,22 +71,6 @@ namespace StationeersTest
         }
     }
 
-    struct OutputBuildCostInsert
-    {
-        public string PrinterName;
-        public string TierName;
-        public string Details;
-        public string Description;
-
-        public void setFromStationBuildCostInsert(StationBuildCostInsert insert)
-        {
-            PrinterName = insert.PrinterName;
-            TierName = insert.TierName;
-            Details = insert.Details;
-            Description = insert.Description;
-        }
-    }
-
     struct OutputCategoryInsert
     {
         public string NameOfThing;
