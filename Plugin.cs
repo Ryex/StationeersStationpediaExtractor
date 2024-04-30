@@ -375,6 +375,9 @@ namespace StationeersTest
                 writer.WritePropertyName("Structure");
                 writer.WriteStartObject();
 
+                writer.WritePropertyName("SmallGrid");
+                writer.WriteValue(thing is SmallGrid);
+
                 if (structure.BuildStates.Count > 0)
                 {
                     writer.WritePropertyName("BuildStates");
