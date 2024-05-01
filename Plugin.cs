@@ -22,6 +22,7 @@ using Assets.Scripts.Atmospherics;
 using Objects.Items;
 using Objects.Rockets;
 using Reagents;
+using Newtonsoft.Json.Linq;
 
 namespace StationeersTest
 {
@@ -57,17 +58,6 @@ namespace StationeersTest
             SlotType = insert.SlotType;
             SlotIndex = insert.SlotIndex;
         }
-        public void writeToJson(JsonWriter writer)
-        {
-            writer.WriteStartObject();
-            writer.WritePropertyName("SlotName");
-            writer.WriteValue(SlotName);
-            writer.WritePropertyName("SlotType");
-            writer.WriteValue(SlotType);
-            writer.WritePropertyName("SlotIndex");
-            writer.WriteValue(SlotIndex);
-            writer.WriteEnd();
-        }
     }
 
     struct OutputLogicInsert
@@ -79,14 +69,19 @@ namespace StationeersTest
             LogicName = insert.LogicName;
             LogicAccessTypes = insert.LogicAccessTypes;
         }
-        public void writeToJson(JsonWriter writer)
+    }
+
+    struct OutputCategoryInsert
+    {
+        public string NameOfThing;
+        public int PrefabHash;
+        public string PageLink;
+
+        public void setFromStationCategoryInsert(StationCategoryInsert insert)
         {
-            writer.WriteStartObject();
-            writer.WritePropertyName("LogicName");
-            writer.WriteValue(LogicName);
-            writer.WritePropertyName("LogicAccessTypes");
-            writer.WriteValue(LogicAccessTypes);
-            writer.WriteEnd();
+            NameOfThing = insert.NameOfThing;
+            PrefabHash = insert.PrefabHash;
+            PageLink = insert.PageLink;
         }
     }
 
@@ -97,11 +92,14 @@ namespace StationeersTest
         public string Description;
         public string PrefabName;
         public int PrefabHash;
+        public string BasePowerDraw;
+        public string MaxPressure;
         public List<OutputSlotsInset> SlotInserts;
         public List<OutputLogicInsert> LogicInsert;
         public List<OutputLogicInsert> LogicSlotInsert;
         public List<OutputLogicInsert> ModeInsert;
         public List<OutputLogicInsert> ConnectionInsert;
+        public List<OutputCategoryInsert> ConstructedByKits;
         public void setFromPage(StationpediaPage page)
         {
             Key = page.Key;
@@ -109,6 +107,8 @@ namespace StationeersTest
             Description = page.Description;
             PrefabName = page.PrefabName;
             PrefabHash = page.PrefabHash;
+            BasePowerDraw = page.BasePowerDraw;
+            MaxPressure = page.MaxPressure;
             SlotInserts = page.SlotInserts.ConvertAll(i =>
             {
                 OutputSlotsInset oi = new();
@@ -139,86 +139,62 @@ namespace StationeersTest
                 oi.setFromStationLogicInsert(i);
                 return oi;
             });
+            ConstructedByKits = page.ConstructedByKits.ConvertAll(i =>
+            {
+                OutputCategoryInsert oi = new();
+                oi.setFromStationCategoryInsert(i);
+                return oi;
+            });
         }
         public void writeToJson(JsonWriter writer)
         {
             writer.WriteStartObject();
 
-            writer.WritePropertyName("Key");
-            writer.WriteValue(Key);
-            writer.WritePropertyName("Title");
-            writer.WriteValue(Title);
-            writer.WritePropertyName("Description");
-            writer.WriteValue(Description);
-            writer.WritePropertyName("PrefabName");
-            writer.WriteValue(PrefabName);
-            writer.WritePropertyName("PrefabHash");
-            writer.WriteValue(PrefabHash);
-            writer.WritePropertyName("SlotInserts");
-            writer.WriteStartArray();
-            foreach (var si in SlotInserts)
+            JObject obj = JObject.FromObject(this);
+            foreach (var property in obj.Properties())
             {
-                si.writeToJson(writer);
+                property.WriteTo(writer);
             }
-            writer.WriteEnd();
-            writer.WritePropertyName("LogicInsert");
-            writer.WriteStartArray();
-            foreach (var li in LogicInsert)
-            {
-                li.writeToJson(writer);
-            }
-            writer.WriteEnd();
-            writer.WritePropertyName("LogicSlotInsert");
-            writer.WriteStartArray();
-            foreach (var sli in LogicSlotInsert)
-            {
-                sli.writeToJson(writer);
-            }
-            writer.WriteEnd();
-            writer.WritePropertyName("ModeInsert");
-            writer.WriteStartArray();
-            foreach (var mi in ModeInsert)
-            {
-                mi.writeToJson(writer);
-            }
-            writer.WriteEnd();
-            writer.WritePropertyName("ConnectionInsert");
-            writer.WriteStartArray();
-            foreach (var ci in ConnectionInsert)
-            {
-                ci.writeToJson(writer);
-            }
-            writer.WriteEnd();
 
             Thing thing = Prefab.Find(PrefabName);
             Device device = thing as Device;
             DynamicThing dynamicthing = thing as DynamicThing;
 
             ILogicable logicable = thing as ILogicable;
-            if (logicable != null) {
+            if (logicable != null)
+            {
                 writer.WritePropertyName("LogicInfo");
                 writer.WriteStartObject();
 
                 writer.WritePropertyName("LogicSlotTypes");
                 writer.WriteStartObject();
-                for (int i = 0; i < thing.Slots.Count; i++) {
-                    if (thing.Slots[i] != null) {
+                for (int i = 0; i < thing.Slots.Count; i++)
+                {
+                    if (thing.Slots[i] != null)
+                    {
                         writer.WritePropertyName(i.ToString());
                         writer.WriteStartObject();
                         foreach (LogicSlotType logicSlotType in Logicable.LogicSlotTypes)
                         {
                             bool read = logicable.CanLogicRead(logicSlotType, i);
                             bool write = false;
-                            if (device != null) {
+                            if (device != null)
+                            {
                                 write = device.CanLogicWrite(logicSlotType, i);
                             }
-                            if (read || write) {
+                            if (read || write)
+                            {
                                 writer.WritePropertyName(Enum.GetName(typeof(LogicSlotType), logicSlotType));
-                                if (read && !write) {
+                                if (read && !write)
+                                {
                                     writer.WriteValue("Read");
-                                } else if (!read && write) {
+                                }
+                                else if (!read && write)
+                                {
                                     writer.WriteValue("Write");
-                                } else {
+                                }
+                                else
+                                {
                                     writer.WriteValue("ReadWrite");
                                 }
                             }
@@ -230,16 +206,23 @@ namespace StationeersTest
 
                 writer.WritePropertyName("LogicTypes");
                 writer.WriteStartObject();
-                foreach (LogicType logicType in EnumCollections.LogicTypes.Values) {
+                foreach (LogicType logicType in EnumCollections.LogicTypes.Values)
+                {
                     bool read = logicable.CanLogicRead(logicType);
                     bool write = logicable.CanLogicWrite(logicType);
-                    if (read || write) {
+                    if (read || write)
+                    {
                         writer.WritePropertyName(Enum.GetName(typeof(LogicType), logicType));
-                        if (read && !write) {
+                        if (read && !write)
+                        {
                             writer.WriteValue("Read");
-                        } else if (!read && write) {
+                        }
+                        else if (!read && write)
+                        {
                             writer.WriteValue("Write");
-                        } else {
+                        }
+                        else
+                        {
                             writer.WriteValue("ReadWrite");
                         }
                     }
@@ -249,7 +232,8 @@ namespace StationeersTest
                 writer.WriteEndObject();
 
                 IMemory memory = thing as IMemory;
-                if (memory != null) {
+                if (memory != null)
+                {
                     writer.WritePropertyName("Memory");
                     writer.WriteStartObject();
 
@@ -263,50 +247,60 @@ namespace StationeersTest
                     IMemoryWritable memoryWritable = memory as IMemoryWritable;
                     IMemoryReadable memoryReadable = memory as IMemoryReadable;
                     writer.WritePropertyName("MemoryAccess");
-                    if (memoryWritable != null && memoryReadable != null) {
+                    if (memoryWritable != null && memoryReadable != null)
+                    {
                         writer.WriteValue("ReadWrite");
-                    } else if ( memoryReadable != null) {
+                    }
+                    else if (memoryReadable != null)
+                    {
                         writer.WriteValue("Read");
-                    } else if ( memoryWritable != null) {
+                    }
+                    else if (memoryWritable != null)
+                    {
                         writer.WriteValue("Write");
-                    } else {
+                    }
+                    else
+                    {
                         writer.WriteValue("None");
                     }
 
                     IInstructable instructable = memory as IInstructable;
-                    if (instructable != null) {
+                    if (instructable != null)
+                    {
                         writer.WritePropertyName("Instructions");
                         writer.WriteStartObject();
                         IEnumCollection instructions = instructable.GetInstructions();
-			            for (int i = 1; i < instructions.Length; i++)
-			            {
-			                writer.WritePropertyName(instructions.GetNameFromIndex(i, false));
-			                writer.WriteStartObject();
-			                writer.WritePropertyName("Type");
-			                writer.WriteValue(instructions.GetEnumTypeName());
-				            int intFromIndex = instructions.GetIntFromIndex(i);
-			                writer.WritePropertyName("Value");
-			                writer.WriteValue(intFromIndex);
-			                writer.WritePropertyName("Description");
-			                writer.WriteValue(instructable.GetInstructionDescription(i));
-			                writer.WriteEndObject();
-			            }
-			            writer.WriteEndObject();
+                        for (int i = 1; i < instructions.Length; i++)
+                        {
+                            writer.WritePropertyName(instructions.GetNameFromIndex(i, false));
+                            writer.WriteStartObject();
+                            writer.WritePropertyName("Type");
+                            writer.WriteValue(instructions.GetEnumTypeName());
+                            int intFromIndex = instructions.GetIntFromIndex(i);
+                            writer.WritePropertyName("Value");
+                            writer.WriteValue(intFromIndex);
+                            writer.WritePropertyName("Description");
+                            writer.WriteValue(instructable.GetInstructionDescription(i));
+                            writer.WriteEndObject();
+                        }
+                        writer.WriteEndObject();
                     }
 
                     writer.WriteEndObject();
                 }
 
-           }
+            }
 
             ITransmitable transmitable = thing as ITransmitable;
-            if (transmitable != null) {
+            if (transmitable != null)
+            {
                 writer.WritePropertyName("WirelessLogic");
                 writer.WriteValue(true);
             }
 
             ITransmissionReceiver transmissionReceiver = thing as ITransmissionReceiver;
-            if (transmissionReceiver != null) {
+            if (transmissionReceiver != null)
+            {
                 writer.WritePropertyName("TransmissionReceiver");
                 writer.WriteValue(true);
             }
@@ -376,6 +370,85 @@ namespace StationeersTest
                 writer.WriteEndObject();
             }
 
+            if (thing is Structure structure)
+            {
+                writer.WritePropertyName("Structure");
+                writer.WriteStartObject();
+
+                writer.WritePropertyName("SmallGrid");
+                writer.WriteValue(thing is SmallGrid);
+
+                if (structure.BuildStates.Count > 0)
+                {
+                    writer.WritePropertyName("BuildStates");
+                    writer.WriteStartArray();
+                    foreach (BuildState buildState in structure.BuildStates)
+                    {
+                        writer.WriteStartObject();
+                        if (buildState.Tool.ToolEntry is not null || buildState.Tool.ToolEntry2 is not null)
+                        {
+                            writer.WritePropertyName("Tool");
+                            writer.WriteStartArray();
+                            if (buildState.Tool.ToolEntry is { } toolEntry)
+                            {
+                                writer.WriteStartObject();
+                                writer.WritePropertyName("PrefabName");
+                                writer.WriteValue(toolEntry.PrefabName);
+                                if (toolEntry is IQuantity)
+                                {
+                                    writer.WritePropertyName("Quantity");
+                                    writer.WriteValue(buildState.Tool.EntryQuantity);
+                                }
+                                writer.WritePropertyName("IsTool");
+                                writer.WriteValue(toolEntry is Tool);
+                                writer.WriteEndObject();
+
+                            }
+                            if (buildState.Tool.ToolEntry2 is { } toolEntry2)
+                            {
+                                writer.WriteStartObject();
+                                writer.WritePropertyName("PrefabName");
+                                writer.WriteValue(toolEntry2.PrefabName);
+                                if (toolEntry2 is IQuantity)
+                                {
+                                    writer.WritePropertyName("Quantity");
+                                    writer.WriteValue(buildState.Tool.EntryQuantity2);
+                                }
+                                writer.WritePropertyName("IsTool");
+                                writer.WriteValue(toolEntry2 is Tool);
+                                writer.WriteEndObject();
+                            }
+                            writer.WriteEndArray();
+                        }
+                        if (buildState.Tool.ToolExit is not null || buildState.Tool is not null)
+                        {
+                            writer.WritePropertyName("ToolExit");
+                            writer.WriteStartArray();
+                            if (buildState.Tool.ToolExit is { } toolExit)
+                            {
+                                writer.WriteStartObject();
+                                writer.WritePropertyName("PrefabName");
+                                writer.WriteValue(toolExit.PrefabName);
+                                writer.WriteEndObject();
+
+                            }
+                            writer.WriteEndArray();
+                        }
+                        if (buildState.CanManufacture)
+                        {
+                            writer.WritePropertyName("CanManufacture");
+                            writer.WriteValue(buildState.CanManufacture);
+                            writer.WritePropertyName("MachineTier");
+                            writer.WriteValue(buildState.ManufactureDat.MachinesTier.ToString());
+                        }
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEnd();
+                }
+
+                writer.WriteEndObject();
+
+            }
             if (dynamicthing)
             {
                 writer.WritePropertyName("Item");
@@ -407,6 +480,60 @@ namespace StationeersTest
                     GasFilter gasFilter = dynamicthing as GasFilter;
                     writer.WritePropertyName("FilterType");
                     writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType), gasFilter.FilterType));
+                }
+
+                if (!(!(bool)(UnityEngine.Object)dynamicthing || Stationpedia.CreatorItem == null || dynamicthing is Plant))
+                {
+                    List<RecipeReference> allMyCreators = ElectronicReader.GetAllMyCreators(dynamicthing);
+                    if (!(allMyCreators == null))
+                    {
+                        List<int> existingCreators = new List<int>();
+                        writer.WritePropertyName("Recipes");
+                        writer.WriteStartArray();
+
+                        for (int index = 0; index < allMyCreators.Count; ++index)
+                        {
+                            RecipeReference reference = allMyCreators[index];
+                            if (!(reference.Creator is Fabricator))
+                            {
+                                writer.WriteStartObject();
+                                writer.WritePropertyName("CreatorPrefabName");
+                                writer.WriteValue(reference.Creator.PrefabName);
+                                if (dynamicthing.RecipeTier != MachineTier.Undefined && dynamicthing.RecipeTier != MachineTier.Max)
+                                {
+                                    writer.WritePropertyName("TierName");
+                                    writer.WriteValue(dynamicthing.RecipeTier.ToString());
+                                }
+
+                                try
+                                {
+                                    JToken recipeToken = JToken.FromObject(reference.Recipe);
+                                    if (recipeToken.Type == JTokenType.Object)
+                                    {
+                                        foreach (var prop in recipeToken.Children<JProperty>())
+                                        {
+                                            writer.WritePropertyName(prop.Name);
+                                            if (prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array)
+                                            {
+                                                prop.Value.WriteTo(writer);
+                                            }
+                                            else
+                                            {
+                                                writer.WriteValue(prop.Value);
+                                            }
+                                        }
+                                    }
+                                }
+                                catch (FormatException ex)
+                                {
+                                    Debug.LogError((object)("There was an error with text " + Stationpedia.CreatorItem.Parsed + " " + ex.Message));
+                                }
+                                writer.WriteEndObject();
+
+                            }
+                        }
+                        writer.WriteEndArray();
+                    }
                 }
 
                 Consumable consumable = thing as Consumable;
@@ -525,10 +652,12 @@ namespace StationeersTest
                         writer.WritePropertyName("Unit");
                         writer.WriteValue(reagent.Unit);
                         List<Item> allSources = ElectronicReader.GetAllSources(reagent);
-                        if (allSources != null) {
+                        if (allSources != null)
+                        {
                             writer.WritePropertyName("Sources");
                             writer.WriteStartObject();
-                            for (int i = 0; i< allSources.Count; i++) {
+                            for (int i = 0; i < allSources.Count; i++)
+                            {
                                 Item item = allSources[i];
                                 writer.WritePropertyName(item.PrefabName);
                                 writer.WriteValue(item.QuantityPerUse);
@@ -541,7 +670,8 @@ namespace StationeersTest
 
                     writer.WritePropertyName("scriptCommands");
                     writer.WriteStartObject();
-                    foreach (ScriptCommand cmd in EnumCollections.ScriptCommands.Values) {
+                    foreach (ScriptCommand cmd in EnumCollections.ScriptCommands.Values)
+                    {
                         writer.WritePropertyName(Enum.GetName(typeof(ScriptCommand), cmd));
                         writer.WriteStartObject();
                         writer.WritePropertyName("desc");
@@ -694,17 +824,17 @@ namespace StationeersTest
                         writer.WritePropertyName("GasType." + Enum.GetName(typeof(Chemistry.GasType), i));
                         writer.WriteValue(i);
                     }
-                    foreach( var i in Enum.GetValues(typeof(RocketMode)))
+                    foreach (var i in Enum.GetValues(typeof(RocketMode)))
                     {
                         writer.WritePropertyName("RocketMode." + Enum.GetName(typeof(RocketMode), i));
                         writer.WriteValue(i);
                     }
-                    foreach( var i in Enum.GetValues(typeof(ReEntryProfile)))
+                    foreach (var i in Enum.GetValues(typeof(ReEntryProfile)))
                     {
                         writer.WritePropertyName("ReEntryProfile." + Enum.GetName(typeof(ReEntryProfile), i));
                         writer.WriteValue(i);
                     }
-                    foreach( var i in Enum.GetValues(typeof(SorterInstruction)))
+                    foreach (var i in Enum.GetValues(typeof(SorterInstruction)))
                     {
                         writer.WritePropertyName("SorterInstruction." + Enum.GetName(typeof(SorterInstruction), i));
                         writer.WriteValue(i);
