@@ -1,28 +1,29 @@
-﻿using BepInEx;
-using HarmonyLib;
-using Assets.Scripts.Objects.Items;
+﻿using System;
 using System.Collections.Generic;
-using Assets.Scripts.Objects;
-using System.Reflection.Emit;
-using System;
-using Assets.Scripts.Inventory;
-using Util.Commands;
-using Assets.Scripts.UI;
 using System.IO;
-using Newtonsoft.Json;
-using UnityEngine;
 using System.Linq;
-using Assets.Scripts.Objects.Motherboards;
-using Assets.Scripts.Objects.Electrical;
+using System.Reflection;
+using System.Reflection.Emit;
 using Assets.Scripts;
-using Assets.Scripts.Objects.Entities;
-using Assets.Scripts.Objects.Pipes;
-using Assets.Scripts.Objects.Appliances;
 using Assets.Scripts.Atmospherics;
+using Assets.Scripts.Inventory;
+using Assets.Scripts.Objects;
+using Assets.Scripts.Objects.Appliances;
+using Assets.Scripts.Objects.Electrical;
+using Assets.Scripts.Objects.Entities;
+using Assets.Scripts.Objects.Items;
+using Assets.Scripts.Objects.Motherboards;
+using Assets.Scripts.Objects.Pipes;
+using Assets.Scripts.UI;
+using BepInEx;
+using HarmonyLib;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Objects.Items;
 using Objects.Rockets;
 using Reagents;
-using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Util.Commands;
 
 namespace StationeersTest
 {
@@ -33,10 +34,12 @@ namespace StationeersTest
         private const string pluginName = "Stationpedia Extractor";
         private const string pluginVersion = "1.0.0";
         private static Plugin instance;
+
         public static void Log(object line)
         {
             instance.Logger.LogInfo(line);
         }
+
         private void Awake()
         {
             instance = this;
@@ -52,6 +55,7 @@ namespace StationeersTest
         public string SlotName;
         public string SlotType;
         public string SlotIndex;
+
         public void setFromStationSlotInsert(StationSlotsInsert insert)
         {
             SlotName = insert.SlotName;
@@ -64,6 +68,7 @@ namespace StationeersTest
     {
         public string LogicName;
         public string LogicAccessTypes;
+
         public void setFromStationLogicInsert(StationLogicInsert insert)
         {
             LogicName = insert.LogicName;
@@ -100,6 +105,7 @@ namespace StationeersTest
         public List<OutputLogicInsert> ModeInsert;
         public List<OutputLogicInsert> ConnectionInsert;
         public List<OutputCategoryInsert> ConstructedByKits;
+
         public void setFromPage(StationpediaPage page)
         {
             Key = page.Key;
@@ -146,6 +152,7 @@ namespace StationeersTest
                 return oi;
             });
         }
+
         public void writeToJson(JsonWriter writer)
         {
             writer.WriteStartObject();
@@ -184,7 +191,9 @@ namespace StationeersTest
                             }
                             if (read || write)
                             {
-                                writer.WritePropertyName(Enum.GetName(typeof(LogicSlotType), logicSlotType));
+                                writer.WritePropertyName(
+                                    Enum.GetName(typeof(LogicSlotType), logicSlotType)
+                                );
                                 if (read && !write)
                                 {
                                     writer.WriteValue("Read");
@@ -241,8 +250,9 @@ namespace StationeersTest
                     writer.WritePropertyName("MemorySize");
                     writer.WriteValue(memorySize);
                     writer.WritePropertyName("MemorySizeReadable");
-                    writer.WriteValue(NetworkHelper.GetBytesReadable((long)(memory.GetStackSize() * 8)));
-
+                    writer.WriteValue(
+                        NetworkHelper.GetBytesReadable((long)(memory.GetStackSize() * 8))
+                    );
 
                     IMemoryWritable memoryWritable = memory as IMemoryWritable;
                     IMemoryReadable memoryReadable = memory as IMemoryReadable;
@@ -288,20 +298,23 @@ namespace StationeersTest
 
                     writer.WriteEndObject();
                 }
-
             }
 
-            ITransmitable transmitable = thing as ITransmitable;
-            if (transmitable != null)
+            if (thing is ITransmitable)
             {
                 writer.WritePropertyName("WirelessLogic");
                 writer.WriteValue(true);
             }
 
-            ITransmissionReceiver transmissionReceiver = thing as ITransmissionReceiver;
-            if (transmissionReceiver != null)
+            if (thing is ITransmissionReceiver)
             {
                 writer.WritePropertyName("TransmissionReceiver");
+                writer.WriteValue(true);
+            }
+
+            if (thing is ICircuitHolder)
+            {
+                writer.WritePropertyName("CircuitHolder");
                 writer.WriteValue(true);
             }
 
@@ -325,13 +338,13 @@ namespace StationeersTest
                         writer.WriteValue(role_name);
                         writer.WriteEnd();
                     }
-
                 }
                 writer.WriteEnd();
 
                 CircuitHousing circuitHousing = device as CircuitHousing;
                 DeviceInputOutputCircuit deviceCircuitIO = device as DeviceInputOutputCircuit;
-                DeviceInputOutputImportExportCircuit deviceCircuitIOIE = device as DeviceInputOutputImportExportCircuit;
+                DeviceInputOutputImportExportCircuit deviceCircuitIOIE =
+                    device as DeviceInputOutputImportExportCircuit;
 
                 if (circuitHousing || deviceCircuitIO || deviceCircuitIOIE)
                 {
@@ -385,7 +398,10 @@ namespace StationeersTest
                     foreach (BuildState buildState in structure.BuildStates)
                     {
                         writer.WriteStartObject();
-                        if (buildState.Tool.ToolEntry is not null || buildState.Tool.ToolEntry2 is not null)
+                        if (
+                            buildState.Tool.ToolEntry is not null
+                            || buildState.Tool.ToolEntry2 is not null
+                        )
                         {
                             writer.WritePropertyName("Tool");
                             writer.WriteStartArray();
@@ -402,7 +418,6 @@ namespace StationeersTest
                                 writer.WritePropertyName("IsTool");
                                 writer.WriteValue(toolEntry is Tool);
                                 writer.WriteEndObject();
-
                             }
                             if (buildState.Tool.ToolEntry2 is { } toolEntry2)
                             {
@@ -430,7 +445,6 @@ namespace StationeersTest
                                 writer.WritePropertyName("PrefabName");
                                 writer.WriteValue(toolExit.PrefabName);
                                 writer.WriteEndObject();
-
                             }
                             writer.WriteEndArray();
                         }
@@ -447,7 +461,6 @@ namespace StationeersTest
                 }
 
                 writer.WriteEndObject();
-
             }
             if (dynamicthing)
             {
@@ -479,12 +492,22 @@ namespace StationeersTest
                 {
                     GasFilter gasFilter = dynamicthing as GasFilter;
                     writer.WritePropertyName("FilterType");
-                    writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType), gasFilter.FilterType));
+                    writer.WriteValue(
+                        Enum.GetName(typeof(Chemistry.GasType), gasFilter.FilterType)
+                    );
                 }
 
-                if (!(!(bool)(UnityEngine.Object)dynamicthing || Stationpedia.CreatorItem == null || dynamicthing is Plant))
+                if (
+                    !(
+                        !(bool)(UnityEngine.Object)dynamicthing
+                        || Stationpedia.CreatorItem == null
+                        || dynamicthing is Plant
+                    )
+                )
                 {
-                    List<RecipeReference> allMyCreators = ElectronicReader.GetAllMyCreators(dynamicthing);
+                    List<RecipeReference> allMyCreators = ElectronicReader.GetAllMyCreators(
+                        dynamicthing
+                    );
                     if (!(allMyCreators == null))
                     {
                         List<int> existingCreators = new List<int>();
@@ -499,7 +522,10 @@ namespace StationeersTest
                                 writer.WriteStartObject();
                                 writer.WritePropertyName("CreatorPrefabName");
                                 writer.WriteValue(reference.Creator.PrefabName);
-                                if (dynamicthing.RecipeTier != MachineTier.Undefined && dynamicthing.RecipeTier != MachineTier.Max)
+                                if (
+                                    dynamicthing.RecipeTier != MachineTier.Undefined
+                                    && dynamicthing.RecipeTier != MachineTier.Max
+                                )
                                 {
                                     writer.WritePropertyName("TierName");
                                     writer.WriteValue(dynamicthing.RecipeTier.ToString());
@@ -513,7 +539,10 @@ namespace StationeersTest
                                         foreach (var prop in recipeToken.Children<JProperty>())
                                         {
                                             writer.WritePropertyName(prop.Name);
-                                            if (prop.Value.Type == JTokenType.Object || prop.Value.Type == JTokenType.Array)
+                                            if (
+                                                prop.Value.Type == JTokenType.Object
+                                                || prop.Value.Type == JTokenType.Array
+                                            )
                                             {
                                                 prop.Value.WriteTo(writer);
                                             }
@@ -526,10 +555,16 @@ namespace StationeersTest
                                 }
                                 catch (FormatException ex)
                                 {
-                                    Debug.LogError((object)("There was an error with text " + Stationpedia.CreatorItem.Parsed + " " + ex.Message));
+                                    Debug.LogError(
+                                        (object)(
+                                            "There was an error with text "
+                                            + Stationpedia.CreatorItem.Parsed
+                                            + " "
+                                            + ex.Message
+                                        )
+                                    );
                                 }
                                 writer.WriteEndObject();
-
                             }
                         }
                         writer.WriteEndArray();
@@ -583,22 +618,36 @@ namespace StationeersTest
                             {
                                 writer.WritePropertyName(reagent.TypeNameShort);
                                 writer.WriteValue(val);
-
                             }
                         }
                         writer.WriteEnd();
                     }
-
-
-
                 }
 
                 writer.WriteEnd();
-
             }
 
             writer.WriteEnd();
         }
+    }
+
+    struct EnumEntry
+    {
+        public int value;
+        public bool deprecated;
+        public string description;
+    }
+
+    struct EnumListing
+    {
+        public string enumName;
+        public Dictionary<string, EnumEntry> values;
+    }
+
+    struct EnumsOutput
+    {
+        public Dictionary<string, EnumListing> scriptEnums;
+        public Dictionary<string, EnumListing> basicEnums;
     }
 
     class StationpediaExportCommand : CommandBase
@@ -611,7 +660,10 @@ namespace StationeersTest
 
         public override string Execute(string[] args)
         {
-            string out_path = Path.Combine(Path.Combine(Application.dataPath, ".."), "Stationpedia");
+            string out_path = Path.Combine(
+                Path.Combine(Application.dataPath, ".."),
+                "Stationpedia"
+            );
             Directory.CreateDirectory(out_path);
             List<string> msgs = new();
 
@@ -626,7 +678,6 @@ namespace StationeersTest
                     writer.WriteStartObject();
                     writer.WritePropertyName("pages");
                     writer.WriteStartArray();
-
 
                     foreach (var page in Stationpedia.StationpediaPages)
                     {
@@ -683,7 +734,6 @@ namespace StationeersTest
                     writer.WriteEndObject();
 
                     writer.WriteEndObject();
-
                 }
             }
 
@@ -693,158 +743,115 @@ namespace StationeersTest
                 StreamWriter sw = new(path);
                 using (JsonWriter writer = new JsonTextWriter(sw))
                 {
-                    writer.WriteStartObject();
+                    writer.Formatting = Formatting.Indented;
+                    // writer.WriteStartObject();
 
-                    writer.WritePropertyName("LogicType");
-                    writer.WriteStartObject();
-                    foreach (LogicType i in EnumCollections.LogicTypes.Values)
+                    List<IScriptEnum> scriptEnums = ProgrammableChip.InternalEnums;
+                    EnumsOutput enumsOutput = new();
+                    enumsOutput.scriptEnums = new();
+                    enumsOutput.basicEnums = new();
+                    foreach (IScriptEnum e in scriptEnums)
                     {
-                        var name = Enum.GetName(typeof(LogicType), i);
-                        writer.WritePropertyName(name);
-                        writer.WriteValue(i);
-                    }
-                    writer.WriteEnd();
+                        EnumListing listing = new();
+                        listing.values = new();
+                        Type seTyp = e.GetType();
+                        FieldInfo ftypTypes = seTyp.GetField(
+                            "_types",
+                            System.Reflection.BindingFlags.NonPublic
+                                | System.Reflection.BindingFlags.Instance
+                        );
+                        FieldInfo ftypNames = seTyp.GetField(
+                            "_names",
+                            System.Reflection.BindingFlags.NonPublic
+                                | System.Reflection.BindingFlags.Instance
+                        );
+                        FieldInfo ftypTypeString = seTyp.GetField(
+                            "_typeString",
+                            System.Reflection.BindingFlags.NonPublic
+                                | System.Reflection.BindingFlags.Instance
+                        );
+                        var types = (Array)ftypTypes.GetValue(e);
+                        var names = (string[])ftypNames.GetValue(e);
+                        Type enumTyp = types.GetType().GetElementType();
+                        string typeName;
+                        if (ftypTypeString == null)
+                        {
+                            typeName = enumTyp.Name;
+                        }
+                        else
+                        {
+                            typeName = (string)ftypTypeString.GetValue(e);
+                        }
+                        if (string.IsNullOrEmpty(typeName))
+                        {
+                            typeName = "_unnamed";
+                        }
 
-                    writer.WritePropertyName("LogicSlotType");
-                    writer.WriteStartObject();
-                    foreach (LogicSlotType i in EnumCollections.LogicSlotTypes.Values)
-                    {
-                        var name = Enum.GetName(typeof(LogicSlotType), i);
-                        writer.WritePropertyName(name);
-                        writer.WriteValue(i);
-                    }
-                    writer.WriteEnd();
+                        listing.enumName = enumTyp.Name;
 
-                    writer.WritePropertyName("LogicBatchMethod");
-                    writer.WriteStartObject();
-                    foreach (var i in Enum.GetValues(typeof(LogicBatchMethod)))
-                    {
-                        var name = Enum.GetName(typeof(LogicBatchMethod), i);
-                        writer.WritePropertyName(name);
-                        writer.WriteValue(i);
-                    }
-                    writer.WriteEnd();
+                        // writer.WritePropertyName(typeName);
+                        // writer.WriteStartObject();
+                        //
+                        // writer.WritePropertyName("enum");
+                        // writer.WriteValue(enumTyp.Name);
+                        // writer.WritePropertyName("values");
+                        // writer.WriteStartObject();
 
-                    writer.WritePropertyName("LogicReagentMode");
-                    writer.WriteStartObject();
-                    foreach (var i in Enum.GetValues(typeof(LogicReagentMode)))
-                    {
-                        var name = Enum.GetName(typeof(LogicReagentMode), i);
-                        writer.WritePropertyName(name);
-                        writer.WriteValue(i);
-                    }
-                    writer.WriteEnd();
+                        for (int i = 0; i < names.Length; i++)
+                        {
+                            EnumEntry entry = new();
+                            var enm = types.GetValue(i);
+                            var name = names[i];
+                            entry.value = Convert.ToInt32(enm);
+                            entry.deprecated = e.IsDeprecated(i);
+                            entry.description = string.Empty;
+                            if (enm.GetType().Name == "LogicType")
+                            {
+                                entry.description = LogicBase.GetLogicDescription((LogicType)enm);
+                            }
+                            else if (enm.GetType().Name == "LogicSlotType")
+                            {
+                                entry.description = LogicBase.GetLogicDescription(
+                                    (LogicSlotType)enm
+                                );
+                            }
+                            string key = name;
+                            string[] parts = name.Split(new Char[] { '.' }, 2);
+                            if (parts.Length > 1)
+                            {
+                                key = parts[1];
+                            }
+                            listing.values[key] = entry;
+                        }
 
+                        msgs.Add("Adding Enum " + seTyp.Name + "<" + enumTyp.Name + "> ...");
+                        if (seTyp.Name.Contains("ScriptEnum"))
+                        {
+                            if (!enumsOutput.scriptEnums.ContainsKey(typeName)) {
+                                enumsOutput.scriptEnums.Add(typeName, listing);
+                            } else {
+                                msgs.Add("[Warning] Duplicate script enum key: " + typeName);
+                                enumsOutput.scriptEnums.Add(typeName + "_" + enumTyp.Name, listing);
+                            }
+                        }
+                        else if (seTyp.Name.Contains("BasicEnum"))
+                        {
+                            if (!enumsOutput.basicEnums.ContainsKey(typeName)) {
+                                enumsOutput.basicEnums.Add(typeName, listing);
+                            } else {
+                                msgs.Add("[Warning] Duplicate basic enum key: " + typeName);
+                                enumsOutput.basicEnums.Add(typeName + "_" + enumTyp.Name, listing);
+                            }
+                        }
+                        else
+                        {
+                            Debug.LogError((object)("Unknown ScriptEnum Type " + seTyp.Name));
+                        }
+                    }
+                    JObject enumsObj = JObject.FromObject(enumsOutput);
+                    enumsObj.WriteTo(writer);
 
-                    writer.WritePropertyName("Enums");
-                    writer.WriteStartObject();
-
-                    foreach (var i in EnumCollections.LogicTypes.Values)
-                    {
-                        writer.WritePropertyName("LogicType." + Enum.GetName(typeof(LogicType), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in EnumCollections.LogicSlotTypes.Values)
-                    {
-                        writer.WritePropertyName("LogicSlotType." + Enum.GetName(typeof(LogicSlotType), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(SoundAlert)))
-                    {
-                        writer.WritePropertyName("Sound." + Enum.GetName(typeof(SoundAlert), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(LogicTransmitterMode)))
-                    {
-                        writer.WritePropertyName("TransmitterMode." + Enum.GetName(typeof(LogicTransmitterMode), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(ElevatorMode)))
-                    {
-                        writer.WritePropertyName("ElevatorMode." + Enum.GetName(typeof(ElevatorMode), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(ColorType)))
-                    {
-                        writer.WritePropertyName("Color." + Enum.GetName(typeof(ColorType), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(EntityState)))
-                    {
-                        writer.WritePropertyName("EntityState." + Enum.GetName(typeof(EntityState), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(AirControlMode)))
-                    {
-                        writer.WritePropertyName("AirControl." + Enum.GetName(typeof(AirControlMode), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(DaylightSensor.DaylightSensorMode)))
-                    {
-                        writer.WritePropertyName("DaylightSensorMode." + Enum.GetName(typeof(DaylightSensor.DaylightSensorMode), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(ConditionOperation)))
-                    {
-                        writer.WritePropertyName(Enum.GetName(typeof(ConditionOperation), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(AirConditioningMode)))
-                    {
-                        writer.WritePropertyName("AirCon." + Enum.GetName(typeof(AirConditioningMode), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(VentDirection)))
-                    {
-                        writer.WritePropertyName("Vent." + Enum.GetName(typeof(VentDirection), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(PowerMode)))
-                    {
-                        writer.WritePropertyName("PowerMode." + Enum.GetName(typeof(PowerMode), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(RobotMode)))
-                    {
-                        writer.WritePropertyName("RobotMode." + Enum.GetName(typeof(RobotMode), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(SortingClass)))
-                    {
-                        writer.WritePropertyName("SortingClass." + Enum.GetName(typeof(SortingClass), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(Slot.Class)))
-                    {
-                        writer.WritePropertyName("SlotClass." + Enum.GetName(typeof(Slot.Class), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(Chemistry.GasType)))
-                    {
-                        writer.WritePropertyName("GasType." + Enum.GetName(typeof(Chemistry.GasType), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(RocketMode)))
-                    {
-                        writer.WritePropertyName("RocketMode." + Enum.GetName(typeof(RocketMode), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(ReEntryProfile)))
-                    {
-                        writer.WritePropertyName("ReEntryProfile." + Enum.GetName(typeof(ReEntryProfile), i));
-                        writer.WriteValue(i);
-                    }
-                    foreach (var i in Enum.GetValues(typeof(SorterInstruction)))
-                    {
-                        writer.WritePropertyName("SorterInstruction." + Enum.GetName(typeof(SorterInstruction), i));
-                        writer.WriteValue(i);
-                    }
-
-                    writer.WriteEnd();
-
-                    writer.WriteEnd();
-
-
+                    // writer.WriteEnd();
                 }
             }
 
