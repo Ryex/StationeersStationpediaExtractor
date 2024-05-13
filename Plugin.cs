@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -100,6 +100,7 @@ namespace StationeersTest
         public int PrefabHash;
         public string BasePowerDraw;
         public string MaxPressure;
+        public string GrowthTime;
         public List<OutputSlotsInset> SlotInserts;
         public List<OutputLogicInsert> LogicInsert;
         public List<OutputLogicInsert> LogicSlotInsert;
@@ -116,6 +117,7 @@ namespace StationeersTest
             PrefabHash = page.PrefabHash;
             BasePowerDraw = page.BasePowerDraw;
             MaxPressure = page.MaxPressure;
+            GrowthTime = page.GrowthTime;
             SlotInserts = page.SlotInserts.ConvertAll(i =>
             {
                 OutputSlotsInset oi = new();
@@ -682,6 +684,42 @@ namespace StationeersTest
                         }
                         writer.WriteEndArray();
                     }
+                }
+
+                if (dynamicthing is INutrition nutrition)
+                {
+                    writer.WritePropertyName("Food");
+                    writer.WriteStartObject();
+
+                    writer.WritePropertyName("NutritionQuality");
+                    writer.WriteValue(nutrition.GetFoodQuality());
+
+                    if (nutrition is Food food)
+                    {
+                        writer.WritePropertyName("NutritionValue");
+                        writer.WriteValue(food.GetNutritionalValue());
+                        // MoodBonus
+                        writer.WritePropertyName("MoodBonus");
+                        writer.WriteValue(food.MoodBonus);
+                    }
+                    else
+                    if (nutrition is StackableFood stackable)
+                    {
+                        writer.WritePropertyName("NutritionValue");
+                        writer.WriteValue(stackable.GetNutritionalValue());
+                        writer.WritePropertyName("MoodBonus");
+                        writer.WriteValue(stackable.MoodBonus);
+                    } else if (nutrition is Plant plant) {
+                        writer.WritePropertyName("NutritionValue");
+                        writer.WriteValue(plant.GetNutritionalValue());
+                        writer.WritePropertyName("MoodBonus");
+                        writer.WriteValue(plant.MoodBonus);
+                    }
+
+                    writer.WritePropertyName("NutritionQualityReadable");
+                    writer.WriteValue((string)Food.GetFoodQualityStationpediaDescription(nutrition));
+
+                    writer.WriteEndObject();
                 }
 
                 Consumable consumable = thing as Consumable;
