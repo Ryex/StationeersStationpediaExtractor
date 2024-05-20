@@ -9,6 +9,7 @@ using Assets.Scripts.Atmospherics;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Appliances;
+using Assets.Scripts.Objects.Clothing;
 using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Objects.Entities;
 using Assets.Scripts.Objects.Items;
@@ -318,6 +319,50 @@ namespace StationeersTest
                 writer.WriteValue(true);
             }
 
+            if (thing is ISourceCode)
+            {
+                writer.WritePropertyName("SourceCode");
+                writer.WriteValue(true);
+            }
+
+            if (thing is IChargable chargable)
+            {
+                writer.WritePropertyName("Chargeable");
+                writer.WriteStartObject();
+
+                writer.WritePropertyName("PowerMaximum");
+                writer.WriteValue(chargable.GetPowerMaximum());
+
+                writer.WriteEndObject();
+            }
+
+            if (thing is IResourceConsumer consumer)
+            {
+                writer.WritePropertyName("ResourceConsumer");
+                writer.WriteStartObject();
+
+                writer.WritePropertyName("ConsumedResources");
+                writer.WriteStartArray();
+                foreach (var item in consumer.GetResourcesUsed())
+                {
+                    writer.WriteValue(item.GetPrefabName());
+                }
+                writer.WriteEndArray();
+
+                writer.WritePropertyName("ProcessedReagents");
+                writer.WriteStartArray();
+                foreach (var reagent in Reagent.AllReagentsSorted)
+                {
+                    if (consumer.CanProcess(reagent))
+                    {
+                        writer.WriteValue(reagent.Hash);
+                    }
+                }
+                writer.WriteEndArray();
+
+                writer.WriteEndObject();
+            }
+
             if (device != null)
             {
                 writer.WritePropertyName("Device");
@@ -379,6 +424,73 @@ namespace StationeersTest
                 writer.WriteValue(device.HasModeState);
                 writer.WritePropertyName("HasColorState");
                 writer.WriteValue(device.HasColorState);
+
+                if (device is SimpleFabricatorBase fabricator)
+                {
+                    writer.WritePropertyName("Fabricator");
+                    writer.WriteStartObject();
+
+                    writer.WritePropertyName("Tier");
+                    writer.WriteValue(fabricator.CurrentTier);
+                    writer.WritePropertyName("TierName");
+                    writer.WriteValue(fabricator.CurrentTier.ToString());
+
+                    writer.WritePropertyName("Recipes");
+                    writer.WriteStartObject();
+                    foreach (var recipePair in fabricator.Recipes)
+                    {
+                        writer.WritePropertyName(recipePair.Key.GetPrefabName());
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("CreatorPrefabName");
+                        writer.WriteValue(fabricator.PrefabName);
+                        if (
+                            recipePair.Key.RecipeTier != MachineTier.Undefined
+                            && recipePair.Key.RecipeTier != MachineTier.Max
+                        )
+                        {
+                            writer.WritePropertyName("TierName");
+                            writer.WriteValue(recipePair.Key.RecipeTier.ToString());
+                        }
+
+                        try
+                        {
+                            JToken recipeToken = JToken.FromObject(recipePair.Value);
+                            if (recipeToken.Type == JTokenType.Object)
+                            {
+                                foreach (var prop in recipeToken.Children<JProperty>())
+                                {
+                                    writer.WritePropertyName(prop.Name);
+                                    if (
+                                        prop.Value.Type == JTokenType.Object
+                                        || prop.Value.Type == JTokenType.Array
+                                    )
+                                    {
+                                        prop.Value.WriteTo(writer);
+                                    }
+                                    else
+                                    {
+                                        writer.WriteValue(prop.Value);
+                                    }
+                                }
+                            }
+                        }
+                        catch (FormatException ex)
+                        {
+                            Debug.LogError(
+                                (object)(
+                                    "There was an error with text "
+                                    + Stationpedia.CreatorItem.Parsed
+                                    + " "
+                                    + ex.Message
+                                )
+                            );
+                        }
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEndObject();
+
+                    writer.WriteEndObject();
+                }
 
                 writer.WriteEndObject();
             }
@@ -462,6 +574,7 @@ namespace StationeersTest
 
                 writer.WriteEndObject();
             }
+
             if (dynamicthing)
             {
                 writer.WritePropertyName("Item");
@@ -601,7 +714,7 @@ namespace StationeersTest
                         writer.WritePropertyName("Reagents");
                         writer.WriteStartObject();
 
-                        foreach (var reagent in Reagent.AllReagents)
+                        foreach (var reagent in Reagent.AllReagentsSorted)
                         {
                             double val;
 
@@ -624,9 +737,55 @@ namespace StationeersTest
                     }
                 }
 
+                if (thing is IWearable)
+                {
+                    writer.WritePropertyName("Wearable");
+                    writer.WriteValue(true);
+                }
+
+                if (thing is ISuit suit)
+                {
+                    writer.WritePropertyName("Suit");
+                    writer.WriteStartObject();
+
+                    writer.WritePropertyName("HygineReductionMultiplier");
+                    writer.WriteValue(suit.HygieneReductionMultiplier);
+                    writer.WritePropertyName("WasteMaxPressure");
+                    writer.WriteValue(suit.WasteMaxPressure);
+
+                    writer.WriteEndObject();
+                }
+
                 writer.WriteEnd();
             }
 
+            if (thing is IInternalAtmosphere internalAtmosphere)
+            {
+                // setup internal attmo if it has one so we can collect data
+
+                writer.WritePropertyName("InternalAtmosphere");
+                writer.WriteStartObject();
+
+                IVolume volume = thing as IVolume;
+                writer.WritePropertyName("Volume");
+                writer.WriteValue( volume != null ? volume.GetVolume : 0.0);
+
+                writer.WriteEndObject();
+            }
+
+            if (thing is IThermal thermal)
+            {
+                writer.WritePropertyName("Thermal");
+                writer.WriteStartObject();
+
+                writer.WritePropertyName("Convection");
+                writer.WriteValue(thermal.ConvectionFactor);
+
+                writer.WritePropertyName("Radiation");
+                writer.WriteValue(thermal.RadiationFactor);
+
+                writer.WriteEndObject();
+            }
             writer.WriteEnd();
         }
     }
@@ -827,18 +986,24 @@ namespace StationeersTest
                         msgs.Add("Adding Enum " + seTyp.Name + "<" + enumTyp.Name + "> ...");
                         if (seTyp.Name.Contains("ScriptEnum"))
                         {
-                            if (!enumsOutput.scriptEnums.ContainsKey(typeName)) {
+                            if (!enumsOutput.scriptEnums.ContainsKey(typeName))
+                            {
                                 enumsOutput.scriptEnums.Add(typeName, listing);
-                            } else {
+                            }
+                            else
+                            {
                                 msgs.Add("[Warning] Duplicate script enum key: " + typeName);
                                 enumsOutput.scriptEnums.Add(typeName + "_" + enumTyp.Name, listing);
                             }
                         }
                         else if (seTyp.Name.Contains("BasicEnum"))
                         {
-                            if (!enumsOutput.basicEnums.ContainsKey(typeName)) {
+                            if (!enumsOutput.basicEnums.ContainsKey(typeName))
+                            {
                                 enumsOutput.basicEnums.Add(typeName, listing);
-                            } else {
+                            }
+                            else
+                            {
                                 msgs.Add("[Warning] Duplicate basic enum key: " + typeName);
                                 enumsOutput.basicEnums.Add(typeName + "_" + enumTyp.Name, listing);
                             }
