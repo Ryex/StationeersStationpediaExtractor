@@ -91,84 +91,202 @@ namespace StationeersTest
         }
     }
 
-    struct OutputStationpediaPage
+    struct OutputPrefab
     {
-        public string Key;
-        public string Title;
-        public string Description;
-        public string PrefabName;
-        public int PrefabHash;
-        public string BasePowerDraw;
-        public string MaxPressure;
-        public string GrowthTime;
-        public List<OutputSlotsInset> SlotInserts;
-        public List<OutputLogicInsert> LogicInsert;
-        public List<OutputLogicInsert> LogicSlotInsert;
-        public List<OutputLogicInsert> ModeInsert;
-        public List<OutputLogicInsert> ConnectionInsert;
-        public List<OutputCategoryInsert> ConstructedByKits;
-
-        public void setFromPage(StationpediaPage page)
+        public OutputPrefab(Thing prefab)
         {
-            Key = page.Key;
-            Title = page.Title;
-            Description = page.Description;
-            PrefabName = page.PrefabName;
-            PrefabHash = page.PrefabHash;
-            BasePowerDraw = page.BasePowerDraw;
-            MaxPressure = page.MaxPressure;
-            GrowthTime = page.GrowthTime;
-            SlotInserts = page.SlotInserts.ConvertAll(i =>
-            {
-                OutputSlotsInset oi = new();
-                oi.setFromStationSlotInsert(i);
-                return oi;
-            });
-            LogicInsert = page.LogicInsert.ConvertAll(i =>
-            {
-                OutputLogicInsert oi = new();
-                oi.setFromStationLogicInsert(i);
-                return oi;
-            });
-            LogicSlotInsert = page.LogicSlotInsert.ConvertAll(i =>
-            {
-                OutputLogicInsert oi = new();
-                oi.setFromStationLogicInsert(i);
-                return oi;
-            });
-            ModeInsert = page.ModeInsert.ConvertAll(i =>
-            {
-                OutputLogicInsert oi = new();
-                oi.setFromStationLogicInsert(i);
-                return oi;
-            });
-            ConnectionInsert = page.ConnectionInsert.ConvertAll(i =>
-            {
-                OutputLogicInsert oi = new();
-                oi.setFromStationLogicInsert(i);
-                return oi;
-            });
-            ConstructedByKits = page.ConstructedByKits.ConvertAll(i =>
-            {
-                OutputCategoryInsert oi = new();
-                oi.setFromStationCategoryInsert(i);
-                return oi;
-            });
+            OutputThing = prefab;
         }
+
+        public Thing OutputThing;
 
         public void writeToJson(JsonWriter writer)
         {
-            writer.WriteStartObject();
-
-            JObject obj = JObject.FromObject(this);
-            foreach (var property in obj.Properties())
-            {
-                property.WriteTo(writer);
-            }
-
-            Thing thing = Prefab.Find(PrefabName);
+            Thing thing = OutputThing;
             Device device = thing as Device;
             DynamicThing dynamicthing = thing as DynamicThing;
+
+            if (thing is Human human)
+            {
+                writer.WritePropertyName("Human");
+                writer.WriteStartObject();
+
+                writer.WritePropertyName("Slots");
+                writer.WriteStartArray();
+                for (int i = 0; i < thing.Slots.Count; i++)
+                {
+                    if (thing.Slots[i] != null)
+                    {
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("SlotClass");
+                        writer.WriteValue(Enum.GetName(typeof(Slot.Class), thing.Slots[i].Type));
+                        writer.WritePropertyName("StringHash");
+                        writer.WriteValue(thing.Slots[i].StringHash);
+                        writer.WritePropertyName("StringKey");
+                        writer.WriteValue(thing.Slots[i].StringKey);
+                        writer.WritePropertyName("SlotName");
+                        String slotStr;
+                        int hash = thing.Slots[i].StringHash;
+                        if (hash == Slot.LeftHandHash)
+                        {
+                            slotStr = "LeftHand";
+                        }
+                        else if (hash == Slot.RightHandHash)
+                        {
+                            slotStr = "RightHand";
+                        }
+                        else if (hash == Slot.UniformHash)
+                        {
+                            slotStr = "Uniform";
+                        }
+                        else if (hash == Slot.LungsHash)
+                        {
+                            slotStr = "Lungs";
+                        }
+                        else if (hash == Slot.BrainHash)
+                        {
+                            slotStr = "Brain";
+                        }
+                        else if (hash == Slot.ProgrammableChipHash)
+                        {
+                            slotStr = "ProgrammableChip";
+                        }
+                        else
+                        {
+                            slotStr = "";
+                        }
+                        writer.WriteValue(slotStr);
+                        writer.WriteEndObject();
+                    }
+                }
+                writer.WriteEndArray();
+
+                writer.WritePropertyName("Hydration");
+                writer.WriteValue(human.Hydration);
+                writer.WritePropertyName("MaxHydration");
+                writer.WriteValue(8.75f); // hardcoded with Mathf.Clamp
+                writer.WritePropertyName("Nutrition");
+                writer.WriteValue(human.Nutrition);
+                writer.WritePropertyName("BaseNutritionStorage");
+                writer.WriteValue(human.BaseNutritionStorage);
+                writer.WritePropertyName("FoodQuality");
+                writer.WriteValue(human.FoodQuality);
+                writer.WritePropertyName("MaxFoodQuality");
+                writer.WriteValue(1f); // hardcoded with Mathf.Clamp
+                writer.WritePropertyName("Oxygenation");
+                writer.WriteValue(human.Oxygenation);
+                writer.WritePropertyName("MaxOxygenStorage");
+                writer.WriteValue(0.024f); // MaxOxygenStorage is protected
+                writer.WritePropertyName("Mood");
+                writer.WriteValue(human.Mood);
+                writer.WritePropertyName("MaxMood");
+                writer.WriteValue(1f); // hardcoded with Mathf.Clamp
+                writer.WritePropertyName("Hygiene");
+                writer.WriteValue(human.Hygiene);
+                writer.WritePropertyName("MaxHygiene");
+                writer.WriteValue(1.25f); // hardcoded with Mathf.Clamp
+
+                writer.WritePropertyName("NutritionDamageRateAwake");
+                writer.WriteValue(human.NutritionDamageRate);
+                writer.WritePropertyName("DehydrationDamageRateAwake");
+                writer.WriteValue(human.DehydrationDamageRate);
+                var lastState = human.State;
+                human.State = EntityState.Unconscious;
+                writer.WritePropertyName("NutritionDamageRateSleeping");
+                writer.WriteValue(human.NutritionDamageRate);
+                writer.WritePropertyName("DehydrationDamageRateSleeping");
+                writer.WriteValue(human.DehydrationDamageRate);
+                human.State = lastState;
+
+                writer.WritePropertyName("WarningOxygen");
+                writer.WriteValue(human.WarningOxygen);
+                writer.WritePropertyName("CriticalOxygen");
+                writer.WriteValue(human.CriticalOxygen);
+                writer.WritePropertyName("WarningNutrition");
+                writer.WriteValue(human.WarningNutrition);
+                writer.WritePropertyName("CriticalNutrition");
+                writer.WriteValue(human.CriticalNutrition);
+                writer.WritePropertyName("WarningHydration");
+                writer.WriteValue(human.WarningHydration);
+                writer.WritePropertyName("CriticalHydration");
+                writer.WriteValue(human.CriticalHydration);
+                writer.WritePropertyName("FullNutrition");
+                writer.WriteValue(human.FullNutrition);
+                writer.WritePropertyName("WarningHealth");
+                writer.WriteValue(human.WarningHealth);
+                writer.WritePropertyName("CriticalHealth");
+                writer.WriteValue(human.CriticalHealth);
+                writer.WritePropertyName("WarningMood");
+                writer.WriteValue(human.WarningMood);
+                writer.WritePropertyName("CriticalMood");
+                writer.WriteValue(human.CriticalMood);
+                writer.WritePropertyName("WarningHygiene");
+                writer.WriteValue(human.WarningHygiene);
+                writer.WritePropertyName("CriticalHygiene");
+                writer.WriteValue(human.CriticalHygiene);
+                writer.WritePropertyName("ToxicPartialPressureDamage");
+                writer.WriteValue(Human.ToxicPartialPressureForDamage);
+                writer.WritePropertyName("ToxicPartialPressureWarning");
+                writer.WriteValue(Human.ToxicPartialPressureForWarning);
+
+                writer.WriteEndObject();
+            }
+
+            if (thing is Organ organ)
+            {
+                writer.WritePropertyName("Organ");
+                writer.WriteStartObject();
+                writer.WriteEndObject();
+            }
+
+            if (thing is Brain brain)
+            {
+                writer.WritePropertyName("Brain");
+                writer.WriteStartObject();
+                writer.WriteEndObject();
+            }
+
+            if (thing is Lungs lungs)
+            {
+                writer.WritePropertyName("Lungs");
+                writer.WriteStartObject();
+                writer.WritePropertyName("TemperatureMin");
+                writer.WriteValue(
+                    lungs
+                        .GetType()
+                        .GetProperty(
+                            "TemperatureMin",
+                            BindingFlags.NonPublic | BindingFlags.Instance
+                        )
+                        .GetValue(lungs)
+                );
+                writer.WritePropertyName("TemperatureMax");
+                writer.WriteValue(
+                    lungs
+                        .GetType()
+                        .GetProperty(
+                            "TemperatureMax",
+                            BindingFlags.NonPublic | BindingFlags.Instance
+                        )
+                        .GetValue(lungs)
+                );
+                writer.WritePropertyName("Volume");
+                writer.WriteValue(lungs.Volume);
+
+                writer.WritePropertyName("BreathableType");
+                writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType), lungs.BreathedType));
+                writer.WritePropertyName("ToxicTypes");
+                writer.WriteStartArray();
+                foreach (Chemistry.GasType gasType in EnumCollections.GasTypes.Values)
+                {
+                    if ((lungs.ToxicTypes & gasType) != Chemistry.GasType.Undefined)
+                    {
+                        writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType), gasType));
+                    }
+                }
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
 
             ILogicable logicable = thing as ILogicable;
             if (logicable != null)
@@ -702,14 +820,15 @@ namespace StationeersTest
                         writer.WritePropertyName("MoodBonus");
                         writer.WriteValue(food.MoodBonus);
                     }
-                    else
-                    if (nutrition is StackableFood stackable)
+                    else if (nutrition is StackableFood stackable)
                     {
                         writer.WritePropertyName("NutritionValue");
                         writer.WriteValue(stackable.GetNutritionalValue());
                         writer.WritePropertyName("MoodBonus");
                         writer.WriteValue(stackable.MoodBonus);
-                    } else if (nutrition is Plant plant) {
+                    }
+                    else if (nutrition is Plant plant)
+                    {
                         writer.WritePropertyName("NutritionValue");
                         writer.WriteValue(plant.GetNutritionalValue());
                         writer.WritePropertyName("MoodBonus");
@@ -717,7 +836,9 @@ namespace StationeersTest
                     }
 
                     writer.WritePropertyName("NutritionQualityReadable");
-                    writer.WriteValue((string)Food.GetFoodQualityStationpediaDescription(nutrition));
+                    writer.WriteValue(
+                        (string)Food.GetFoodQualityStationpediaDescription(nutrition)
+                    );
 
                     writer.WriteEndObject();
                 }
@@ -806,7 +927,7 @@ namespace StationeersTest
 
                 IVolume volume = thing as IVolume;
                 writer.WritePropertyName("Volume");
-                writer.WriteValue( volume != null ? volume.GetVolume : 0.0);
+                writer.WriteValue(volume != null ? volume.GetVolume : 0.0);
 
                 writer.WriteEndObject();
             }
@@ -824,6 +945,87 @@ namespace StationeersTest
 
                 writer.WriteEndObject();
             }
+        }
+    }
+
+    struct OutputStationpediaPage
+    {
+        public string Key;
+        public string Title;
+        public string Description;
+        public string PrefabName;
+        public int PrefabHash;
+        public string BasePowerDraw;
+        public string MaxPressure;
+        public string GrowthTime;
+        public List<OutputSlotsInset> SlotInserts;
+        public List<OutputLogicInsert> LogicInsert;
+        public List<OutputLogicInsert> LogicSlotInsert;
+        public List<OutputLogicInsert> ModeInsert;
+        public List<OutputLogicInsert> ConnectionInsert;
+        public List<OutputCategoryInsert> ConstructedByKits;
+
+        public void setFromPage(StationpediaPage page)
+        {
+            Key = page.Key;
+            Title = page.Title;
+            Description = page.Description;
+            PrefabName = page.PrefabName;
+            PrefabHash = page.PrefabHash;
+            BasePowerDraw = page.BasePowerDraw;
+            MaxPressure = page.MaxPressure;
+            GrowthTime = page.GrowthTime;
+            SlotInserts = page.SlotInserts.ConvertAll(i =>
+            {
+                OutputSlotsInset oi = new();
+                oi.setFromStationSlotInsert(i);
+                return oi;
+            });
+            LogicInsert = page.LogicInsert.ConvertAll(i =>
+            {
+                OutputLogicInsert oi = new();
+                oi.setFromStationLogicInsert(i);
+                return oi;
+            });
+            LogicSlotInsert = page.LogicSlotInsert.ConvertAll(i =>
+            {
+                OutputLogicInsert oi = new();
+                oi.setFromStationLogicInsert(i);
+                return oi;
+            });
+            ModeInsert = page.ModeInsert.ConvertAll(i =>
+            {
+                OutputLogicInsert oi = new();
+                oi.setFromStationLogicInsert(i);
+                return oi;
+            });
+            ConnectionInsert = page.ConnectionInsert.ConvertAll(i =>
+            {
+                OutputLogicInsert oi = new();
+                oi.setFromStationLogicInsert(i);
+                return oi;
+            });
+            ConstructedByKits = page.ConstructedByKits.ConvertAll(i =>
+            {
+                OutputCategoryInsert oi = new();
+                oi.setFromStationCategoryInsert(i);
+                return oi;
+            });
+        }
+
+        public void writeToJson(JsonWriter writer)
+        {
+            writer.WriteStartObject();
+
+            JObject obj = JObject.FromObject(this);
+            foreach (var property in obj.Properties())
+            {
+                property.WriteTo(writer);
+            }
+
+            OutputPrefab p = new(Prefab.Find(PrefabName));
+            p.writeToJson(writer);
+
             writer.WriteEnd();
         }
     }
@@ -887,6 +1089,31 @@ namespace StationeersTest
                         }
                     }
 
+                    writer.WriteEndArray();
+
+                    writer.WritePropertyName("core_prefabs");
+                    writer.WriteStartArray();
+
+                    List<Thing> corePrefabs =
+                    [
+                        Prefab.Find<Human>("Character"),
+                        Prefab.Find<Brain>("OrganBrain"),
+                        Prefab.Find<Lungs>("OrganLungs"),
+                        Prefab.Find<Lungs>("OrganLungsZrilian"),
+                        Prefab.Find<Lungs>("OrganLungsChicken")
+                    ];
+
+                    foreach (var prefab in corePrefabs)
+                    {
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("Name");
+                        writer.WriteValue(prefab.PrefabName);
+
+                        OutputPrefab p = new(prefab);
+                        p.writeToJson(writer);
+
+                        writer.WriteEndObject();
+                    }
                     writer.WriteEndArray();
 
                     writer.WritePropertyName("reagents");
