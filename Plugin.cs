@@ -575,24 +575,7 @@ namespace StationeersTest
                         try
                         {
                             JToken recipeToken = JToken.FromObject(recipePair.Value);
-                            if (recipeToken.Type == JTokenType.Object)
-                            {
-                                foreach (var prop in recipeToken.Children<JProperty>())
-                                {
-                                    writer.WritePropertyName(prop.Name);
-                                    if (
-                                        prop.Value.Type == JTokenType.Object
-                                        || prop.Value.Type == JTokenType.Array
-                                    )
-                                    {
-                                        prop.Value.WriteTo(writer);
-                                    }
-                                    else
-                                    {
-                                        writer.WriteValue(prop.Value);
-                                    }
-                                }
-                            }
+                            WriteNonZeroNonNullProperties(recipeToken, writer, ["Pressure", "Rule", "Temperature"]);
                         }
                         catch (FormatException ex)
                         {
@@ -767,24 +750,7 @@ namespace StationeersTest
                                 try
                                 {
                                     JToken recipeToken = JToken.FromObject(reference.Recipe);
-                                    if (recipeToken.Type == JTokenType.Object)
-                                    {
-                                        foreach (var prop in recipeToken.Children<JProperty>())
-                                        {
-                                            writer.WritePropertyName(prop.Name);
-                                            if (
-                                                prop.Value.Type == JTokenType.Object
-                                                || prop.Value.Type == JTokenType.Array
-                                            )
-                                            {
-                                                prop.Value.WriteTo(writer);
-                                            }
-                                            else
-                                            {
-                                                writer.WriteValue(prop.Value);
-                                            }
-                                        }
-                                    }
+                                    WriteNonZeroNonNullProperties(recipeToken, writer, ["Pressure", "Rule", "Temperature"]);
                                 }
                                 catch (FormatException ex)
                                 {
@@ -946,6 +912,40 @@ namespace StationeersTest
                 writer.WriteEndObject();
             }
         }
+        private void WriteNonZeroNonNullProperties(JToken props, JsonWriter writer, string[] ignore = null)
+        {
+            if (props.Type == JTokenType.Object)
+            {
+                foreach (var prop in props.Children<JProperty>())
+                {
+                    if (!ignore.Contains(prop.Name) && (prop.Value.ToString() == "0" || prop.Value.ToString() == "0.0")) continue;
+                    writer.WritePropertyName(prop.Name);
+                    if (
+                        prop.Value.Type == JTokenType.Object
+                    )
+                    {
+                        if (ignore.Contains(prop.Name))
+                        {
+                            prop.Value.WriteTo(writer);
+                        }
+                        else
+                        {
+                            writer.WriteStartObject();
+                            WriteNonZeroNonNullProperties(prop.Value, writer, ignore);
+                            writer.WriteEndObject();
+                        }
+                    }
+                    else if (prop.Value.Type == JTokenType.Array)
+                    {
+                        prop.Value.WriteTo(writer);
+                    }
+                    else
+                    {
+                        writer.WriteValue(prop.Value);
+                    }
+                }
+            }
+        }
     }
 
     struct OutputStationpediaPage
@@ -1075,9 +1075,10 @@ namespace StationeersTest
                     writer.Formatting = Formatting.Indented;
 
                     writer.WriteStartObject();
+                    writer.WritePropertyName("version");
+                    writer.WriteValue(typeof(Stationpedia).Assembly.GetName().Version.ToString());
                     writer.WritePropertyName("pages");
                     writer.WriteStartArray();
-
                     foreach (var page in Stationpedia.StationpediaPages)
                     {
                         page.ParsePage();
@@ -1287,5 +1288,7 @@ namespace StationeersTest
 
             return String.Join("\n", msgs) + "\nFiles saved to " + out_path;
         }
+
     }
 }
+
