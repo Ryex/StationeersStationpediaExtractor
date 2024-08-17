@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -445,13 +445,13 @@ namespace StationeersTest
                 writer.WriteValue(true);
             }
 
-            if (thing is IChargable chargable)
+            if (thing is IChargable chargeable)
             {
                 writer.WritePropertyName("Chargeable");
                 writer.WriteStartObject();
 
                 writer.WritePropertyName("PowerMaximum");
-                writer.WriteValue(chargable.GetPowerMaximum());
+                writer.WriteValue(chargeable.GetPowerMaximum());
 
                 writer.WriteEndObject();
             }
@@ -873,7 +873,7 @@ namespace StationeersTest
                     writer.WritePropertyName("Suit");
                     writer.WriteStartObject();
 
-                    writer.WritePropertyName("HygineReductionMultiplier");
+                    writer.WritePropertyName("HygieneReductionMultiplier");
                     writer.WriteValue(suit.HygieneReductionMultiplier);
                     writer.WritePropertyName("WasteMaxPressure");
                     writer.WriteValue(suit.WasteMaxPressure);
@@ -886,7 +886,7 @@ namespace StationeersTest
 
             if (thing is IInternalAtmosphere internalAtmosphere)
             {
-                // setup internal attmo if it has one so we can collect data
+                // setup internal atmo if it has one so we can collect data
 
                 writer.WritePropertyName("InternalAtmosphere");
                 writer.WriteStartObject();
