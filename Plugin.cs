@@ -1123,10 +1123,15 @@ namespace StationeersTest
                     {
                         writer.WritePropertyName(reagent.TypeNameShort);
                         writer.WriteStartObject();
+                        writer.WritePropertyName("Id");
+                        writer.WriteValue(reagent.ReagentId);
                         writer.WritePropertyName("Hash");
                         writer.WriteValue(reagent.Hash);
                         writer.WritePropertyName("Unit");
                         writer.WriteValue(reagent.Unit);
+                        writer.WritePropertyName("IsOrganic");
+                        writer.WriteValue(reagent is OrganicReagent);
+                        
                         List<Item> allSources = ElectronicReader.GetAllSources(reagent);
                         if (allSources != null)
                         {
