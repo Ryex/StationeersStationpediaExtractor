@@ -225,9 +225,9 @@ namespace StationeersTest
                 writer.WritePropertyName("CriticalHygiene");
                 writer.WriteValue(human.CriticalHygiene);
                 writer.WritePropertyName("ToxicPartialPressureDamage");
-                writer.WriteValue(Human.ToxicPartialPressureForDamage);
+                writer.WriteValue(Human.ToxicPartialPressureForDamage.ToDouble());
                 writer.WritePropertyName("ToxicPartialPressureWarning");
-                writer.WriteValue(Human.ToxicPartialPressureForWarning);
+                writer.WriteValue(Human.ToxicPartialPressureForWarning.ToDouble());
 
                 writer.WriteEndObject();
             }
@@ -252,26 +252,26 @@ namespace StationeersTest
                 writer.WriteStartObject();
                 writer.WritePropertyName("TemperatureMin");
                 writer.WriteValue(
-                    lungs
+                    ((TemperatureKelvin)lungs
                         .GetType()
                         .GetProperty(
                             "TemperatureMin",
                             BindingFlags.NonPublic | BindingFlags.Instance
                         )
-                        .GetValue(lungs)
+                        .GetValue(lungs)).ToDouble()
                 );
                 writer.WritePropertyName("TemperatureMax");
                 writer.WriteValue(
-                    lungs
+                    ((TemperatureKelvin)lungs
                         .GetType()
                         .GetProperty(
                             "TemperatureMax",
                             BindingFlags.NonPublic | BindingFlags.Instance
                         )
-                        .GetValue(lungs)
+                        .GetValue(lungs)).ToDouble()
                 );
                 writer.WritePropertyName("Volume");
-                writer.WriteValue(lungs.Volume);
+                writer.WriteValue(lungs.Volume.ToDouble());
 
                 writer.WritePropertyName("BreathableType");
                 writer.WriteValue(Enum.GetName(typeof(Chemistry.GasType), lungs.BreathedType));
@@ -876,7 +876,7 @@ namespace StationeersTest
                     writer.WritePropertyName("HygieneReductionMultiplier");
                     writer.WriteValue(suit.HygieneReductionMultiplier);
                     writer.WritePropertyName("WasteMaxPressure");
-                    writer.WriteValue(suit.WasteMaxPressure);
+                    writer.WriteValue(suit.WasteMaxPressure.ToDouble());
 
                     writer.WriteEndObject();
                 }
@@ -893,7 +893,7 @@ namespace StationeersTest
 
                 IVolume volume = thing as IVolume;
                 writer.WritePropertyName("Volume");
-                writer.WriteValue(volume != null ? volume.GetVolume : 0.0);
+                writer.WriteValue(volume != null ? volume.GetVolume.ToDouble() : 0.0);
 
                 writer.WriteEndObject();
             }
@@ -1131,7 +1131,7 @@ namespace StationeersTest
                         writer.WriteValue(reagent.Unit);
                         writer.WritePropertyName("IsOrganic");
                         writer.WriteValue(reagent is OrganicReagent);
-                        
+
                         List<Item> allSources = ElectronicReader.GetAllSources(reagent);
                         if (allSources != null)
                         {
