@@ -190,13 +190,14 @@ namespace StationeersTest
                 writer.WriteValue(human.NutritionDamageRate);
                 writer.WritePropertyName("DehydrationDamageRateAwake");
                 writer.WriteValue(human.DehydrationDamageRate);
-                var lastState = human.State;
-                human.State = EntityState.Unconscious;
-                writer.WritePropertyName("NutritionDamageRateSleeping");
-                writer.WriteValue(human.NutritionDamageRate);
-                writer.WritePropertyName("DehydrationDamageRateSleeping");
-                writer.WriteValue(human.DehydrationDamageRate);
-                human.State = lastState;
+                // TODO: Entity.SetRagdoll fails here, we need to patch the method
+                // var lastState = human.State;
+                // human.State = EntityState.Unconscious;
+                // writer.WritePropertyName("NutritionDamageRateSleeping");
+                // writer.WriteValue(human.NutritionDamageRate);
+                // writer.WritePropertyName("DehydrationDamageRateSleeping");
+                // writer.WriteValue(human.DehydrationDamageRate);
+                // human.State = lastState;
 
                 writer.WritePropertyName("WarningOxygen");
                 writer.WriteValue(human.WarningOxygen);
