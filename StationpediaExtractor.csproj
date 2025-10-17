@@ -1,24 +1,48 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net46</TargetFramework>
+    <TargetFramework>net4.8</TargetFramework>
     <AssemblyName>StationpediaExtractor</AssemblyName>
     <Description>Extract Stationpedia</Description>
     <Version>1.0.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <LangVersion>latest</LangVersion>
+
+    <RepositoryType>git</RepositoryType>
+		<PackageProjectUrl>https://github.com/Ryex/StationeersStationpediaExtractor</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/Ryex/StationeersStationpediaExtractor</RepositoryUrl>
+		<PackageLicenseFile>$(SolutionDir)LICENSE.md</PackageLicenseFile>
+		<PackageReadmeFile>$(SolutionDir)README.md</PackageReadmeFile>
+
+    <Configurations>Debug;Release;Publish</Configurations>
+		<PlatformTarget>x64</PlatformTarget>
+		<Platforms>x64;x86</Platforms>
+		<DebugType>embedded</DebugType>
+		<WarningLevel>4</WarningLevel>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+    
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+		<LangVersion>preview</LangVersion>
+		<ErrorReport>none</ErrorReport>
+
+		<NuGetAuditLevel>low</NuGetAuditLevel>
+		<NuGetAuditMode>all</NuGetAuditMode>
   </PropertyGroup>
+
+  <!-- Import Stationeers properties - paths -->
   <Import Project="$(SolutionDir)Stationeers.props" />
+
+  <!-- Import Stationeers DLL references - paths -->
+  <Import Project="$(SolutionDir)Stationeers.References.props" />
+
   <ItemGroup>
     <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.0" />
     <PackageReference Include="UnityEngine.Modules" Version="2021.2.3" IncludeAssets="compile" />
-    <Reference Include="Assembly-CSharp">
-      <HintPath>$(StationeersDirectory)\rocketstation_Data\Managed\Assembly-CSharp.dll</HintPath>
-      </Reference>
-    <!-- <Reference Include="Newtonsoft.Json"><HintPath>$(StationeersDirectory)\rocketstation_Data\Managed\Newtonsoft.Json</HintPath></Reference> -->
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.*" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">

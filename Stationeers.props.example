@@ -1,5 +1,12 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <StationeersDirectory>E:\Games\SteamLibrary\steamapps\common\Stationeers</StationeersDirectory>
+    
+    <!-- Do Not Change Anything Below -->
+		<StationeersDataDirectory>$(StationeersDirectory)\rocketstation_Data</StationeersDataDirectory>
+		<StationeersManagedDirectory>$(StationeersDataDirectory)\Managed</StationeersManagedDirectory>
+		<StationeersPluginsDirectory>$(StationeersDataDirectory)\Plugins</StationeersPluginsDirectory>
+		<StationeersResourcesDirectory>$(StationeersDataDirectory)\Resources</StationeersResourcesDirectory>
+		<StationeersStreamingAssetsDirectory>$(StationeersDataDirectory)\StreamingAssets</StationeersStreamingAssetsDirectory>
   </PropertyGroup>
 </Project>
