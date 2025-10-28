@@ -17,6 +17,7 @@ using Assets.Scripts.Objects.Entities;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.Objects.Motherboards;
 using Assets.Scripts.Objects.Pipes;
+using Assets.Scripts.Localization2;
 using Assets.Scripts.UI;
 using BepInEx;
 using HarmonyLib;
@@ -113,61 +114,60 @@ struct OutputPrefab
         Device? device = thing as Device;
         DynamicThing? dynamicthing = thing as DynamicThing;
 
+        writer.WritePropertyName("Slots");
+        writer.WriteStartArray();
+        for (int i = 0; i < thing.Slots.Count; i++)
+        {
+            if (thing.Slots[i] != null)
+            {
+                writer.WriteStartObject();
+                writer.WritePropertyName("SlotClass");
+                writer.WriteValue(Enum.GetName(typeof(Slot.Class), thing.Slots[i].Type));
+                writer.WritePropertyName("StringHash");
+                writer.WriteValue(thing.Slots[i].StringHash);
+                writer.WritePropertyName("StringKey");
+                writer.WriteValue(thing.Slots[i].StringKey);
+                writer.WritePropertyName("SlotName");
+                String slotStr;
+                int hash = thing.Slots[i].StringHash;
+                if (hash == Slot.LeftHandHash)
+                {
+                    slotStr = "LeftHand";
+                }
+                else if (hash == Slot.RightHandHash)
+                {
+                    slotStr = "RightHand";
+                }
+                else if (hash == Slot.UniformHash)
+                {
+                    slotStr = "Uniform";
+                }
+                else if (hash == Slot.LungsHash)
+                {
+                    slotStr = "Lungs";
+                }
+                else if (hash == Slot.BrainHash)
+                {
+                    slotStr = "Brain";
+                }
+                else if (hash == Slot.ProgrammableChipHash)
+                {
+                    slotStr = "ProgrammableChip";
+                }
+                else
+                {
+                    slotStr = Localization.GetName(thing.Slots[i]);
+                }
+                writer.WriteValue(slotStr);
+                writer.WriteEndObject();
+            }
+        }
+        writer.WriteEndArray();
+
         if (thing is Human human)
         {
             writer.WritePropertyName("Human");
             writer.WriteStartObject();
-
-            writer.WritePropertyName("Slots");
-            writer.WriteStartArray();
-            for (int i = 0; i < thing.Slots.Count; i++)
-            {
-                if (thing.Slots[i] != null)
-                {
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("SlotClass");
-                    writer.WriteValue(Enum.GetName(typeof(Slot.Class), thing.Slots[i].Type));
-                    writer.WritePropertyName("StringHash");
-                    writer.WriteValue(thing.Slots[i].StringHash);
-                    writer.WritePropertyName("StringKey");
-                    writer.WriteValue(thing.Slots[i].StringKey);
-                    writer.WritePropertyName("SlotName");
-                    String slotStr;
-                    int hash = thing.Slots[i].StringHash;
-                    if (hash == Slot.LeftHandHash)
-                    {
-                        slotStr = "LeftHand";
-                    }
-                    else if (hash == Slot.RightHandHash)
-                    {
-                        slotStr = "RightHand";
-                    }
-                    else if (hash == Slot.UniformHash)
-                    {
-                        slotStr = "Uniform";
-                    }
-                    else if (hash == Slot.LungsHash)
-                    {
-                        slotStr = "Lungs";
-                    }
-                    else if (hash == Slot.BrainHash)
-                    {
-                        slotStr = "Brain";
-                    }
-                    else if (hash == Slot.ProgrammableChipHash)
-                    {
-                        slotStr = "ProgrammableChip";
-                    }
-                    else
-                    {
-                        slotStr = "";
-                    }
-                    writer.WriteValue(slotStr);
-                    writer.WriteEndObject();
-                }
-            }
-            writer.WriteEndArray();
-
             writer.WritePropertyName("Hydration");
             writer.WriteValue(human.Hydration);
             writer.WritePropertyName("MaxHydration");
@@ -1222,6 +1222,27 @@ class StationpediaExportCommand : CommandBase
                     writer.WriteValue(ProgrammableChip.GetCommandDescription(cmd));
                     writer.WritePropertyName("example");
                     writer.WriteValue(ProgrammableChip.GetCommandExample(cmd));
+                    writer.WriteEndObject();
+                }
+                writer.WriteEndObject();
+
+                writer.WritePropertyName("scriptConstants");
+                writer.WriteStartObject();
+                foreach (ProgrammableChip.Constant cnst in ProgrammableChip.AllConstants)
+                {
+                    writer.WritePropertyName(cnst.Literal);
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("desc");
+                    writer.WriteValue(cnst.Description);
+                    writer.WritePropertyName("value");
+                    String cnst_value = cnst.Value switch
+                    {
+                        Double.NaN => "NaN",
+                        Double.PositiveInfinity => "inf",
+                        Double.NegativeInfinity => "-inf",
+                        _ => cnst.Value.ToString(),
+                    };
+                    writer.WriteValue(cnst_value);
                     writer.WriteEndObject();
                 }
                 writer.WriteEndObject();
