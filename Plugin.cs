@@ -712,6 +712,15 @@ struct OutputPrefab
                 );
             }
 
+            if (dynamicthing is Ore ore)
+            {
+                writer.WritePropertyName("Gases");
+                writer.WriteStartArray();
+                foreach (var gas in ore.SpawnContents)
+                    WriteSpawnGas(gas, writer);
+                writer.WriteEndArray();
+            }
+
             if (
                 !(
                     !(bool)(UnityEngine.Object)dynamicthing
