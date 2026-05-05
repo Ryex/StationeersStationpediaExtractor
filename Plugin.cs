@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Xml.Serialization;
 using Assets.Scripts;
 using Assets.Scripts.Atmospherics;
 using Assets.Scripts.Inventory;
@@ -25,6 +26,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Objects.Items;
 using Objects.Rockets;
+using Objects.Electrical;
 using Reagents;
 using UI.ImGuiUi.Debug;
 using UnityEngine;
@@ -774,37 +776,22 @@ struct OutputPrefab
 
                 writer.WritePropertyName("NutritionQuality");
                 writer.WriteValue(nutrition.GetFoodQuality());
-
-                if (nutrition is Food food)
-                {
-                    writer.WritePropertyName("NutritionValue");
-                    writer.WriteValue(food.GetNutritionalValue());
-                    // MoodBonus
-                    writer.WritePropertyName("MoodBonus");
-                    writer.WriteValue(food.MoodBonus);
-                }
-                else if (nutrition is StackableFood stackable)
-                {
-                    writer.WritePropertyName("NutritionValue");
-                    writer.WriteValue(stackable.GetNutritionalValue());
-                    writer.WritePropertyName("MoodBonus");
-                    writer.WriteValue(stackable.MoodBonus);
-                }
-                else if (nutrition is Plant plant)
-                {
-                    writer.WritePropertyName("NutritionValue");
-                    writer.WriteValue(plant.GetNutritionalValue());
-                    writer.WritePropertyName("MoodBonus");
-                    writer.WriteValue(plant.MoodBonus);
-                }
-
+                writer.WritePropertyName("NutritionValue");
+                writer.WriteValue(nutrition.GetNutritionalValue());
+                writer.WritePropertyName("MoodBonus");
+                writer.WriteValue(nutrition.MoodBonus);
                 writer.WritePropertyName("NutritionQualityReadable");
                 writer.WriteValue(
                     (string)Food.GetFoodQualityStationpediaDescription(nutrition)
                 );
 
                 writer.WriteEndObject();
+                if (nutrition is Plant plant)
+                    WritePlantData(plant, writer);
             }
+
+            if (thing is IFermentable fermentable)
+                WriteFermentableData(fermentable, writer);
 
             Consumable? consumable = thing as Consumable;
             IIngredient? ingredient = thing as IIngredient;
@@ -943,6 +930,150 @@ struct OutputPrefab
             }
         }
     }
+
+    public static void WriteSpawnGas(SpawnGas gas, JsonWriter writer)
+    {
+        if (!gas.IsValid)
+            return;
+        writer.WriteStartObject();
+        writer.WritePropertyName("Type");
+        writer.WriteValue(gas.Name);
+        writer.WritePropertyName("Quantity");
+        writer.WriteValue(gas.Quantity);
+        writer.WritePropertyName("Temperature");
+        writer.WriteValue(gas.Kelvin);
+        writer.WriteEndObject();
+    }
+
+    public static void WriteFermentableData(IFermentable fermentable, JsonWriter writer)
+    {
+        writer.WritePropertyName("Fermentable");
+        writer.WriteStartObject();
+        writer.WritePropertyName("SecondsToProcess");
+        writer.WriteValue(fermentable.SecondsToProcess);
+        writer.WritePropertyName("Output");
+        writer.WriteStartArray();
+        foreach (var gas in fermentable.SpawnGasList)
+            WriteSpawnGas(gas, writer);
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+    }
+
+    public static void WritePlantData(Plant plnt, JsonWriter writer)
+    {
+        if (plnt.GrowthStates.Count == 0)
+            return;
+
+        writer.WritePropertyName("Plant");
+        writer.WriteStartObject();
+
+        writer.WritePropertyName("LifeRequirements");
+        WriteXmlObject(plnt.lifeRequirements.Data, writer);
+
+        writer.WritePropertyName("HarvestQuantityMax");
+        writer.WriteValue(plnt.HarvestQuantityMax);
+
+        writer.WritePropertyName("ThermalPlantEnergy");
+        writer.WriteValue(plnt.ThermalPlantEnergy);
+
+        writer.WritePropertyName("AddsToWater");
+        writer.WriteValue(plnt.AddsToWater);
+
+        writer.WritePropertyName("DisplayName");
+        writer.WriteValue(plnt.DisplayName);
+
+        writer.WritePropertyName("IsPerennial");
+        writer.WriteValue(plnt._isPerennial);
+
+        writer.WritePropertyName("GrowthStates");
+        writer.WriteStartArray();
+
+        double growthTime = 0.0;
+        bool growthTimeSet = false;
+        foreach (var state in plnt.GrowthStates.Skip(1)) // skip first state since it's for "placing" the plant and doesn't actually represent growth
+        {
+            if (state.Dead)
+                continue;
+            writer.WriteStartObject();
+            writer.WritePropertyName("Length");
+            writer.WriteValue(state.Length);
+            writer.WritePropertyName("Mature");
+            writer.WriteValue(state.Mature);
+            writer.WritePropertyName("Seed");
+            writer.WriteValue(state.Seed);
+            writer.WriteEndObject();
+            if (!growthTimeSet)
+            {
+                if (state.Mature || state.Length <= 0.0)
+                    growthTimeSet = true;
+                if (!growthTimeSet)
+                    growthTime += state.Length;
+            }
+        }
+
+        writer.WriteEndArray();
+
+        writer.WritePropertyName("GrowthTime");
+        writer.WriteValue(growthTime);
+
+        writer.WriteEndObject();
+    }
+
+    public static void WriteValue(object obj, JsonWriter writer)
+    {
+        if (obj == null || obj is string || obj.GetType().IsPrimitive)
+            writer.WriteValue(obj);
+        else if (obj.GetType().IsEnum)
+            writer.WriteValue(Enum.GetName(obj.GetType(), obj));
+        else if (obj is System.Collections.IEnumerable enumerable)
+        {
+            writer.WriteStartArray();
+            foreach (var item in enumerable)
+                WriteValue(item, writer);
+            writer.WriteEndArray();
+        }
+        else
+            WriteXmlObject(obj, writer);
+    }
+
+    public static void WriteXmlObject(object obj, JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        foreach (var pair in GetXmlData(obj))
+        {
+            writer.WritePropertyName(pair.Key);
+            WriteValue(pair.Value, writer);
+        }
+        writer.WriteEndObject();
+    }
+
+    public static Dictionary<string, object> GetXmlData(object obj)
+    {
+        var result = new Dictionary<string, object>();
+
+        if (obj == null)
+            return result;
+
+        var fields = obj.GetType()
+            .GetFields(BindingFlags.Instance | BindingFlags.Public);
+
+        foreach (var field in fields)
+        {
+            string name = field.GetCustomAttribute<XmlElementAttribute>()?.ElementName;
+            name ??= field.GetCustomAttribute<XmlAttributeAttribute>()?.AttributeName;
+            if (name == null)
+            {
+                Plugin.Log($"Skipping field {field.Name} in type {obj.GetType()} as it has no XmlElement attribute");
+                continue;
+            }
+
+            result[name] = field.GetValue(obj);
+        }
+
+        return result;
+    }
+
+
 }
 
 struct OutputStationpediaPage
