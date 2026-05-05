@@ -696,22 +696,10 @@ struct OutputPrefab
             writer.WriteValue(Enum.GetName(typeof(Slot.Class), dynamicthing.SlotType));
             writer.WritePropertyName("SortingClass");
             writer.WriteValue(Enum.GetName(typeof(SortingClass), dynamicthing.SortingClass));
-            if (dynamicthing is IQuantity)
+            if (dynamicthing is Stackable stackable)
             {
-                IQuantity? quantity = dynamicthing as IQuantity;
-                double maxQuantity;
-                float? num = (quantity != null) ? new float?(quantity.GetMaxQuantity) : null;
-                if (num == null)
-                {
-                    maxQuantity = 1.0;
-                }
-                else
-                {
-                    maxQuantity = num.GetValueOrDefault();
-                }
-
                 writer.WritePropertyName("MaxQuantity");
-                writer.WriteValue(maxQuantity);
+                writer.WriteValue(stackable.GetMaxQuantity);
             }
             if (dynamicthing is GasFilter)
             {
