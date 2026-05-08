@@ -37,27 +37,45 @@ using Util.Commands;
 
 namespace StationeersSPE;
 
+#pragma warning disable CA1305
+#pragma warning disable CA2243
+
 [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
 public class Plugin : BaseUnityPlugin
 {
-    private const string pluginGuid = "io.inp.stationeers.stationpediaextractor";
+    private const string pluginGuid = "stationeers.stationpediaextractor";
     private const string pluginName = "Stationpedia Extractor";
-    private const string pluginVersion = "1.0.0";
-    private static Plugin instance;
+    private const string pluginVersion = "1.3.0";
+    private static Plugin? instance;
 
-    public Plugin() : base() => Plugin.instance = this;
+    // public Plugin() : base() => Plugin.instance = this;
 
     public static void Log(object line)
     {
-        instance.Logger.LogInfo(line);
+        instance?.Logger.LogInfo(line);
     }
 
-    private void Awake()
+    void Awake()
     {
+        Plugin.instance = this;
         // Plugin startup logic
-        Logger.LogInfo($"Plugin {pluginName} is loaded!");
-
         CommandLine.AddCommand("stationpedia_export", new StationpediaExportCommand());
+        Logger.LogInfo($"Plugin {pluginName} is loaded!");
+    }
+}
+
+public static class ReflectionExtensions
+{
+    public static T? GetFieldValue<T>(this object obj, string name)
+    {
+        if (obj is null)
+        {
+            return default;
+        }
+        var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+        var field = obj.GetType().GetField(name, bindingFlags);
+        if (field is null) return default;
+        return (T)field.GetValue(obj);
     }
 }
 
@@ -67,7 +85,7 @@ struct OutputSlotsInset
     public string SlotType;
     public string SlotIndex;
 
-    public void setFromStationSlotInsert(StationSlotsInsert insert)
+    public void SetFromStationSlotInsert(StationSlotsInsert insert)
     {
         SlotName = insert.SlotName;
         SlotType = insert.SlotType;
@@ -80,7 +98,7 @@ struct OutputLogicInsert
     public string LogicName;
     public string LogicAccessTypes;
 
-    public void setFromStationLogicInsert(StationLogicInsert insert)
+    public void SetFromStationLogicInsert(StationLogicInsert insert)
     {
         LogicName = insert.LogicName;
         LogicAccessTypes = insert.LogicAccessTypes;
@@ -93,7 +111,7 @@ struct OutputCategoryInsert
     public int PrefabHash;
     public string PageLink;
 
-    public void setFromStationCategoryInsert(StationCategoryInsert insert)
+    public void SetFromStationCategoryInsert(StationCategoryInsert insert)
     {
         NameOfThing = insert.NameOfThing;
         PrefabHash = insert.PrefabHash;
@@ -101,16 +119,12 @@ struct OutputCategoryInsert
     }
 }
 
-struct OutputPrefab
+struct OutputPrefab(Thing prefab)
 {
-    public OutputPrefab(Thing prefab)
-    {
-        OutputThing = prefab;
-    }
 
-    public Thing OutputThing;
+    public Thing OutputThing = prefab;
 
-    public void writeToJson(JsonWriter writer)
+    public readonly void WriteToJson(JsonWriter writer)
     {
         Thing thing = OutputThing;
         Device? device = thing as Device;
@@ -259,26 +273,13 @@ struct OutputPrefab
         {
             writer.WritePropertyName("Lungs");
             writer.WriteStartObject();
+
+            TemperatureKelvin tmin = ReflectionExtensions.GetFieldValue<TemperatureKelvin>(lungs, "TemperatureMin");
+            TemperatureKelvin tmax = ReflectionExtensions.GetFieldValue<TemperatureKelvin>(lungs, "TemperatureMax");
+
             writer.WritePropertyName("TemperatureMin");
-            TemperatureKelvin tmin = (TemperatureKelvin)Convert.ChangeType(
-                lungs
-                    .GetType()
-                    .GetProperty(
-                        "TemperatureMin",
-                        BindingFlags.NonPublic | BindingFlags.Instance
-                    )
-                    .GetValue(lungs), typeof(TemperatureKelvin));
             writer.WriteValue(tmin.ToDouble());
             writer.WritePropertyName("TemperatureMax");
-
-            TemperatureKelvin tmax = (TemperatureKelvin)Convert.ChangeType(
-                lungs
-                    .GetType()
-                    .GetProperty(
-                        "TemperatureMax",
-                        BindingFlags.NonPublic | BindingFlags.Instance
-                    )
-                    .GetValue(lungs), typeof(TemperatureKelvin));
             writer.WriteValue(tmax.ToDouble());
             writer.WritePropertyName("Volume");
             writer.WriteValue(lungs.Volume.ToDouble());
@@ -298,8 +299,7 @@ struct OutputPrefab
             writer.WriteEndObject();
         }
 
-        ILogicable? logicable = thing as ILogicable;
-        if (logicable != null)
+        if (thing is ILogicable logicable)
         {
             writer.WritePropertyName("LogicInfo");
             writer.WriteStartObject();
@@ -310,6 +310,7 @@ struct OutputPrefab
             {
                 if (thing.Slots[i] != null)
                 {
+
                     writer.WritePropertyName(i.ToString());
                     writer.WriteStartObject();
                     foreach (LogicSlotType logicSlotType in Logicable.LogicSlotTypes)
@@ -371,8 +372,7 @@ struct OutputPrefab
 
             writer.WriteEndObject();
 
-            IMemory? memory = thing as IMemory;
-            if (memory != null)
+            if (thing is IMemory memory)
             {
                 writer.WritePropertyName("Memory");
                 writer.WriteStartObject();
@@ -405,8 +405,7 @@ struct OutputPrefab
                     writer.WriteValue("None");
                 }
 
-                IInstructable? instructable = memory as IInstructable;
-                if (instructable != null)
+                if (memory is IInstructable instructable)
                 {
                     writer.WritePropertyName("Instructions");
                     writer.WriteStartObject();
@@ -734,14 +733,14 @@ struct OutputPrefab
                 );
                 if (!(allMyCreators == null))
                 {
-                    List<int> existingCreators = new List<int>();
+                    List<int> existingCreators = [];
                     writer.WritePropertyName("Recipes");
                     writer.WriteStartArray();
 
                     for (int index = 0; index < allMyCreators.Count; ++index)
                     {
                         RecipeReference reference = allMyCreators[index];
-                        if (!(reference.Creator is Fabricator))
+                        if (reference.Creator is not Fabricator)
                         {
                             writer.WriteStartObject();
                             writer.WritePropertyName("CreatorPrefabName");
@@ -842,7 +841,7 @@ struct OutputPrefab
                         }
                         else
                         {
-                            val = ingredient.AddMixture.Get(reagent);
+                            val = ingredient?.AddMixture.Get(reagent) ?? 0;
                         }
 
                         if (val > 0.0)
@@ -884,9 +883,8 @@ struct OutputPrefab
             writer.WritePropertyName("InternalAtmosphere");
             writer.WriteStartObject();
 
-            IVolume? volume = thing as IVolume;
             writer.WritePropertyName("Volume");
-            writer.WriteValue(volume != null ? volume.GetVolume.ToDouble() : 0.0);
+            writer.WriteValue(thing is IVolume volume ? volume.GetVolume.ToDouble() : 0.0);
 
             writer.WriteEndObject();
         }
@@ -991,8 +989,10 @@ struct OutputPrefab
         writer.WritePropertyName("DisplayName");
         writer.WriteValue(plnt.DisplayName);
 
+        bool isPerennial = ReflectionExtensions.GetFieldValue<bool>(plnt, "_isPerennial");
+
         writer.WritePropertyName("IsPerennial");
-        writer.WriteValue(plnt._isPerennial);
+        writer.WriteValue(isPerennial);
 
         writer.WritePropertyName("GrowthStates");
         writer.WriteStartArray();
@@ -1068,8 +1068,8 @@ struct OutputPrefab
 
         foreach (var field in fields)
         {
-            string name = field.GetCustomAttribute<XmlElementAttribute>()?.ElementName;
-            name ??= field.GetCustomAttribute<XmlAttributeAttribute>()?.AttributeName;
+            string? name = field.GetCustomAttribute<XmlElementAttribute>()?.ElementName
+                ?? field.GetCustomAttribute<XmlAttributeAttribute>()?.AttributeName;
             if (name == null)
             {
                 Plugin.Log($"Skipping field {field.Name} in type {obj.GetType()} as it has no XmlElement attribute");
@@ -1102,7 +1102,7 @@ struct OutputStationpediaPage
     public List<OutputLogicInsert> ConnectionInsert;
     public List<OutputCategoryInsert> ConstructedByKits;
 
-    public void setFromPage(StationpediaPage page)
+    public void SetFromPage(StationpediaPage page)
     {
         Key = page.Key;
         Title = page.Title;
@@ -1115,42 +1115,42 @@ struct OutputStationpediaPage
         SlotInserts = page.SlotInserts.ConvertAll(i =>
         {
             OutputSlotsInset oi = new();
-            oi.setFromStationSlotInsert(i);
+            oi.SetFromStationSlotInsert(i);
             return oi;
         });
         LogicInsert = page.LogicInsert.ConvertAll(i =>
         {
             OutputLogicInsert oi = new();
-            oi.setFromStationLogicInsert(i);
+            oi.SetFromStationLogicInsert(i);
             return oi;
         });
         LogicSlotInsert = page.LogicSlotInsert.ConvertAll(i =>
         {
             OutputLogicInsert oi = new();
-            oi.setFromStationLogicInsert(i);
+            oi.SetFromStationLogicInsert(i);
             return oi;
         });
         ModeInsert = page.ModeInsert.ConvertAll(i =>
         {
             OutputLogicInsert oi = new();
-            oi.setFromStationLogicInsert(i);
+            oi.SetFromStationLogicInsert(i);
             return oi;
         });
         ConnectionInsert = page.ConnectionInsert.ConvertAll(i =>
         {
             OutputLogicInsert oi = new();
-            oi.setFromStationLogicInsert(i);
+            oi.SetFromStationLogicInsert(i);
             return oi;
         });
         ConstructedByKits = page.ConstructedByKits.ConvertAll(i =>
         {
             OutputCategoryInsert oi = new();
-            oi.setFromStationCategoryInsert(i);
+            oi.SetFromStationCategoryInsert(i);
             return oi;
         });
     }
 
-    public void writeToJson(JsonWriter writer)
+    public readonly void WriteToJson(JsonWriter writer)
     {
         writer.WriteStartObject();
 
@@ -1161,7 +1161,7 @@ struct OutputStationpediaPage
         }
 
         OutputPrefab p = new(Prefab.Find(PrefabName));
-        p.writeToJson(writer);
+        p.WriteToJson(writer);
 
         writer.WriteEnd();
     }
@@ -1190,7 +1190,7 @@ class StationpediaExportCommand : CommandBase
 {
     public override string HelpText => "Export Stationpedia";
 
-    public override string[] Arguments { get; } = Array.Empty<string>();
+    public override string[] Arguments { get; } = [];
 
     public override bool IsLaunchCmd { get; }
 
@@ -1227,8 +1227,8 @@ class StationpediaExportCommand : CommandBase
                         int percent_done = (int)((float)index / page_count * 100.0f);
                         ConsoleWindow.Print($"Exporting Prefab ({percent_done} %): {page.PrefabName}", ConsoleColor.Cyan);
                         OutputStationpediaPage p = new();
-                        p.setFromPage(page);
-                        p.writeToJson(writer);
+                        p.SetFromPage(page);
+                        p.WriteToJson(writer);
 
 
                         Sprite? sprite = null;
@@ -1302,7 +1302,7 @@ class StationpediaExportCommand : CommandBase
                     writer.WriteValue(prefab.PrefabName);
 
                     OutputPrefab p = new(prefab);
-                    p.writeToJson(writer);
+                    p.WriteToJson(writer);
 
                     writer.WriteEndObject();
                 }
@@ -1399,18 +1399,15 @@ class StationpediaExportCommand : CommandBase
                     Type seTyp = e.GetType();
                     FieldInfo ftypTypes = seTyp.GetField(
                         "_types",
-                        System.Reflection.BindingFlags.NonPublic
-                            | System.Reflection.BindingFlags.Instance
+                        BindingFlags.NonPublic | BindingFlags.Instance
                     );
                     FieldInfo ftypNames = seTyp.GetField(
                         "_names",
-                        System.Reflection.BindingFlags.NonPublic
-                            | System.Reflection.BindingFlags.Instance
+                        BindingFlags.NonPublic | BindingFlags.Instance
                     );
                     FieldInfo ftypTypeString = seTyp.GetField(
                         "_typeString",
-                        System.Reflection.BindingFlags.NonPublic
-                            | System.Reflection.BindingFlags.Instance
+                        BindingFlags.NonPublic | BindingFlags.Instance
                     );
                     var types = (Array)ftypTypes.GetValue(e);
                     var names = (string[])ftypNames.GetValue(e);
@@ -1458,7 +1455,7 @@ class StationpediaExportCommand : CommandBase
                             );
                         }
                         string key = name;
-                        string[] parts = name.Split(new Char[] { '.' }, 2);
+                        string[] parts = name.Split(['.'], 2);
                         if (parts.Length > 1)
                         {
                             key = parts[1];
@@ -1508,4 +1505,3 @@ class StationpediaExportCommand : CommandBase
     }
 
 }
-
